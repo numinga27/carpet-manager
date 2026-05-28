@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ craftsman.name }} - Статистика</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+        .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 20px; overflow: hidden; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; }
+        .content { padding: 25px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px; }
+        .stat-card { background: #f8f9fa; padding: 20px; border-radius: 15px; text-align: center; }
+        .stat-card h3 { font-size: 28px; color: #667eea; }
+        .filter-form { background: #f8f9fa; padding: 20px; border-radius: 15px; margin-bottom: 30px; }
+        .filter-row { display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end; }
+        .filter-group { flex: 1; min-width: 150px; }
+        .filter-group label { display: block; margin-bottom: 5px; font-weight: 600; }
+        .filter-group input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 8px; }
+        button { padding: 8px 20px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #f8f9fa; }
+        .type-badge { display: inline-block; padding: 4px 8px; background: #667eea; color: white; border-radius: 5px; font-size: 12px; }
+        .back-btn { display: inline-block; margin-top: 20px; padding: 10px 20px; background: #95a5a6; color: white; text-decoration: none; border-radius: 8px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>👤 {{ craftsman.name }}</h1>
+        <p>📞 {{ craftsman.phone or 'Телефон не указан' }}</p>
+    </div>
+    <div class="content">
+        <!-- Фильтр по дате -->
+        <form method="GET" class="filter-form">
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label>Дата от:</label>
+                    <input type="date" name="date_from" value="{{ date_from }}">
+                </div>
+                <div class="filter-group">
+                    <label>Дата до:</label>
+                    <input type="date" name="date_to" value="{{ date_to }}">
+                </div>
+                <div class="filter-group">
+                    <button type="submit">🔍 Применить</button>
+                </div>
+            </div>
+        </form>
+        
+        <!-- Статистика -->
+        <div class="stats-grid">
+            <div class="stat-card"><h3>{{ total_count }}</h3><p>Всего ковров</p></div>
+            <div class="stat-card"><h3>{{ scanned_count }}</h3><p>Отсканировано</p></div>
+            <div class="stat-card"><h3>{{ total_price }} ₽</h3><p>Общая сумма</p></div>
+            <div class="stat-card"><h3>{{ carpets|length }}</h3><p>За период</p></div>
+        </div>
+        
+        <!-- Статистика по типам -->
+        <h3>📊 По типам ковров:</h3>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin: 15px 0;">
+            {% for name, count in type_stats.items() %}
+            <span class="type-badge">{{ name }}: {{ count }} шт.</span>
+            {% endfor %}
+        </div>
+        
+        <!-- Статистика по месяцам -->
+        <h3>📅 Производство по месяцам:</h3>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin: 15px 0;">
+            {% for month, count in month_stats.items() %}
+            <span class="type-badge" style="background: #27ae60;">{{ month }}: {{ count }} шт.</span>
+            {% endfor %}
+        </div>
+        
+        <!-- Таблица ковров -->
+        <h3>📋 Список ковров:</h3>
+        <table>
+            <thead><tr><th>ID</th><th>Тип</th><th>Цена</th><th>Дата</th><th>Статус</th><th>QR</th></tr></thead>
+            <tbody>
+                {% for carpet in carpets %}
+                <tr>
+                    <td>{{ carpet.carpet_id }}</td>
+                    <td>{{ carpet.carpet_type_ref.name if carpet.carpet_type_ref else '-' }}</td>
+                    <td>{{ carpet.price }} ₽</td>
+                    <td>{{ carpet.date_created }}</td>
+                    <td>{% if carpet.status == 'scanned' %}✅ Отсканирован{% elif carpet.status == 'sold' %}💰 Продан{% else %}📦 Создан{% endif %}</td>
+                    <td><a href="/get_qr/{{ carpet.carpet_id }}" target="_blank">🖼️ QR</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <a href="/" class="back-btn">← Назад к списку</a>
+    </div>
+</div>
+</body>
+</html>

@@ -22,7 +22,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install pyinstaller
-        pip install flask flask-sqlalchemy qrcode pillow
+        pip install flask flask-sqlalchemy qrcode pillow reportlab opencv-python pyzbar numpy
     
     - name: Build with PyInstaller
       run: |

@@ -22,16 +22,14 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install pyinstaller
-        cd web_app
-        pip install -r requirements.txt
+        pip install flask flask-sqlalchemy qrcode pillow reportlab opencv-python pyzbar numpy
     
     - name: Build with PyInstaller
       run: |
-        cd web_app
         pyinstaller --onefile --windowed --name="CarpetManager" --add-data "templates;templates" app.py
     
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
         name: CarpetManager
-        path: web_app/dist/CarpetManager.exe
+        path: dist/CarpetManager.exe

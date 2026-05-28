@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Подтверждение удаления</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+        .container {
+            max-width: 500px;
+            margin: 50px auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+        }
+        h1 { color: #e74c3c; margin-bottom: 20px; }
+        .warning { color: #e74c3c; font-size: 48px; margin: 20px 0; }
+        .btn-group { display: flex; gap: 15px; justify-content: center; margin-top: 30px; }
+        .btn { padding: 12px 25px; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; }
+        .btn-danger { background: #e74c3c; color: white; }
+        .btn-secondary { background: #95a5a6; color: white; }
+        .info { background: #f8f9fa; padding: 15px; border-radius: 10px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="warning">⚠️</div>
+    <h1>Удалить швею?</h1>
+    <div class="info">
+        <strong>{{ craftsman.name }}</strong><br>
+        Телефон: {{ craftsman.phone or 'не указан' }}<br>
+        Количество ковров: <strong>{{ carpet_count }}</strong>
+    </div>
+    <p>Все ковры этой швеи будут <strong>удалены без возможности восстановления</strong>.</p>
+    <div class="btn-group">
+        <a href="/force_delete_craftsman/{{ craftsman.id }}">
+            <button class="btn btn-danger">🗑️ Да, удалить всё</button>
+        </a>
+        <a href="/">
+            <button class="btn btn-secondary">❌ Отмена</button>
+        </a>
+    </div>
+</div>
+</body>
+</html>

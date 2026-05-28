@@ -189,6 +189,14 @@
             background: #f8f9fa;
         }
 
+        /* Строка швеи - кликабельная */
+        .clickable-row {
+            cursor: pointer;
+        }
+        .clickable-row:hover {
+            background: #e8f4fd;
+        }
+
         .status-badge {
             display: inline-block;
             padding: 4px 12px;
@@ -259,7 +267,7 @@
         .modal-content {
             background: white;
             padding: 25px;
-            width: 480px;
+            width: 500px;
             max-width: 90%;
             border-radius: 20px;
             animation: slideIn 0.3s ease;
@@ -355,6 +363,20 @@
             border-left: 4px solid #3498db;
         }
 
+        .price-hint {
+            font-size: 11px;
+            color: #666;
+            margin-top: 8px;
+        }
+
+        .range-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 5px;
+            font-size: 10px;
+            color: #888;
+        }
+
         @media (max-width: 768px) {
             body {
                 padding: 10px;
@@ -393,15 +415,16 @@
 
     <div class="nav">
         <button onclick="openModal('carpet')">➕ Добавить ковёр</button>
+        <button onclick="openModal('group')">📦 Групповое добавление</button>
         <button onclick="openModal('craftsman')">👤 Добавить швею</button>
         <button onclick="window.location.href='/types'">🏷️ Типы ковров</button>
         <button onclick="window.location.href='/search'">🔍 Расширенный поиск</button>
         <button onclick="window.location.href='/stats'">📊 Статистика</button>
+        <button onclick="window.location.href='/mass_print_qr'">🖨️ Массовая печать</button>
         <button onclick="toggleScanPanel()" id="scanToggleBtn">📷 Сканировать QR</button>
     </div>
 
     <div class="content">
-        <!-- Flash сообщения -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 <div class="flash-messages">
@@ -414,10 +437,13 @@
             {% endif %}
         {% endwith %}
 
-        <!-- Информация о сканере -->
         <div class="info-note">
             💡 <strong>Как сканировать QR-код:</strong> Подключите USB-сканер, наведите на QR-код — 
-            данные появятся автоматически. Или введите ID ковра вручную и нажмите Enter.
+            данные появятся автоматически. Или введите ID ковра вручную и нажмите Enter.<br>
+            🕐 <strong>Важно:</strong> Дата сканирования появится только после успешного сканирования.<br>
+            💰 <strong>Авто-цена:</strong> При выборе типа ковра цена подставляется автоматически.<br>
+            📦 <strong>Групповое добавление:</strong> Можно создать до 2000 ковров за раз.<br>
+            👥 <strong>Статистика швеи:</strong> Нажмите на строку с швеёй для детальной статистики.
         </div>
 
         <!-- Панель сканирования -->
@@ -432,7 +458,7 @@
             <div id="scanResult" class="scan-result"></div>
         </div>
 
-        <!-- Таблица ковров -->
+        <!-- Таблица ковров (НЕ кликабельная) -->
         <h2>📋 Список ковров</h2>
         <div class="table-wrapper">
             <table>
@@ -444,7 +470,7 @@
                         <th>Швея</th>
                         <th>Цена</th>
                         <th>Размер</th>
-                        <th>Дата</th>
+                        <th>Дата сканирования</th>
                         <th>Статус</th>
                         <th>Действия</th>
                     </tr>
@@ -466,7 +492,13 @@
                         <td>{{ carpet.craftsman_ref.name if carpet.craftsman_ref else '-' }}</td>
                         <td><strong>{{ carpet.price }} ₽</strong></td>
                         <td>{{ carpet.size or '-' }}</td>
-                        <td>{{ carpet.date_created }}</td>
+                        <td>
+                            {% if carpet.scanned_at %}
+                                <span style="font-size: 12px;">🕐 {{ carpet.scanned_at }}</span>
+                            {% else %}
+                                <span style="color: #999; font-size: 12px;">— не сканирован —</span>
+                            {% endif %}
+                        </td>
                         <td>
                             {% if carpet.status == 'created' %}
                                 <span class="status-badge status-created">📦 Создан</span>
@@ -491,7 +523,7 @@
             </table>
         </div>
 
-        <!-- Таблица швей -->
+        <!-- Таблица швей (КЛИКАБЕЛЬНАЯ) -->
         <h2>👥 Список швей</h2>
         <div class="table-wrapper">
             <table>
@@ -501,22 +533,23 @@
                         <th>Имя</th>
                         <th>Телефон</th>
                         <th>Кол-во ковров</th>
+                        <th>Отсканировано</th>
                         <th>Действия</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for craftsman in craftsmen %}
-                    <tr>
+                    <tr onclick="window.location.href='/craftsman/{{ craftsman.id }}'" class="clickable-row">
                         <td>{{ craftsman.id }}</td>
                         <td><strong>{{ craftsman.name }}</strong></td>
                         <td>{{ craftsman.phone or '-' }}</td>
                         <td>{{ craftsman.carpets|length }}</td>
-                        <td class="action-buttons">
+                        <td>{{ craftsman.carpets|selectattr('status', 'equalto', 'scanned')|list|length }}</td>
+                        <td class="action-buttons" onclick="event.stopPropagation()">
                             <a href="/edit_craftsman/{{ craftsman.id }}">
                                 <button class="btn btn-edit">✏️ Ред.</button>
                             </a>
-                            <button class="btn btn-delete" onclick="deleteCraftsman({{ craftsman.id }})" 
-                                {% if craftsman.carpets|length > 0 %}disabled title="Сначала удалите ковры этой швеи"{% endif %}>
+                            <button class="btn btn-delete" onclick="deleteCraftsman({{ craftsman.id }})">
                                 🗑️ Удалить
                             </button>
                         </td>
@@ -535,11 +568,17 @@
         <form action="/add_carpet" method="POST">
             <div class="form-group">
                 <label>Тип ковра *</label>
-                <select name="carpet_type_id" required>
+                <select name="carpet_type_id" id="carpet_type_id" required onchange="updatePrice()">
                     {% for type in carpet_types %}
-                    <option value="{{ type.id }}">{{ type.name }} - {{ type.base_price }} ₽</option>
+                    <option value="{{ type.id }}" data-price="{{ type.base_price }}">
+                        {{ type.name }} - {{ type.base_price }} ₽
+                    </option>
                     {% endfor %}
                 </select>
+            </div>
+            <div class="form-group">
+                <label>Цена (₽) *</label>
+                <input type="number" name="price" id="price" step="1" required placeholder="15000">
             </div>
             <div class="form-group">
                 <label>Швея *</label>
@@ -548,10 +587,6 @@
                     <option value="{{ craftsman.id }}">{{ craftsman.name }}</option>
                     {% endfor %}
                 </select>
-            </div>
-            <div class="form-group">
-                <label>Цена (₽) *</label>
-                <input type="number" name="price" step="1000" required placeholder="15000">
             </div>
             <div class="form-group">
                 <label>Размер (м)</label>
@@ -566,16 +601,78 @@
                 <input type="text" name="color" placeholder="Красный, Синий...">
             </div>
             <div class="form-group">
-                <label>Дата создания *</label>
-                <input type="date" name="date_created" id="carpetDate" required>
-            </div>
-            <div class="form-group">
                 <label>Примечания</label>
                 <textarea name="notes" placeholder="Дополнительная информация..."></textarea>
             </div>
             <div class="modal-buttons">
                 <button type="submit" class="btn-save">💾 Сохранить</button>
                 <button type="button" class="btn-cancel" onclick="closeModal('carpet')">❌ Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Модальное окно группового добавления -->
+<div id="groupModal" class="modal">
+    <div class="modal-content">
+        <h2>📦 Групповое добавление ковров</h2>
+        <form action="/add_carpet_group" method="POST" id="groupForm">
+            <div class="form-group">
+                <label>Тип ковра *</label>
+                <select name="carpet_type_id" id="group_carpet_type_id" required>
+                    {% for type in carpet_types %}
+                    <option value="{{ type.id }}">
+                        {{ type.name }} - {{ type.base_price }} ₽
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>Количество ковров *: <strong id="countValue" style="color: #667eea; font-size: 18px;">10</strong></label>
+                <input type="range" name="count" min="1" max="2000" value="10" oninput="updateCountValue(this.value)" style="width: 100%;">
+                <div class="range-labels">
+                    <span>1</span>
+                    <span>500</span>
+                    <span>1000</span>
+                    <span>1500</span>
+                    <span>2000</span>
+                </div>
+                <div style="margin-top: 10px;">
+                    <input type="number" id="countNumber" min="1" max="2000" value="10" oninput="updateCountFromNumber(this.value)" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 8px;">
+                </div>
+                <div class="price-hint">
+                    ⚡ Можно добавить до 2000 ковров за раз. QR-коды сгенерируются автоматически.
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Швея *</label>
+                <select name="craftsman_id" required>
+                    {% for craftsman in craftsmen %}
+                    <option value="{{ craftsman.id }}">{{ craftsman.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>Размер (м)</label>
+                <input type="text" name="size" placeholder="2x3 м">
+            </div>
+            
+            <div class="form-group">
+                <label>Материал</label>
+                <input type="text" name="material" placeholder="Шерсть, Хлопок...">
+            </div>
+            
+            <div class="form-group">
+                <label>Цвет</label>
+                <input type="text" name="color" placeholder="Красный, Синий...">
+            </div>
+            
+            <div class="modal-buttons">
+                <button type="submit" class="btn-save" id="groupSubmitBtn">💾 Создать</button>
+                <button type="button" class="btn-cancel" onclick="closeModal('group')">❌ Отмена</button>
             </div>
         </form>
     </div>
@@ -603,12 +700,38 @@
 </div>
 
 <script>
+    // Автоподстановка цены
+    function updatePrice() {
+        const select = document.getElementById('carpet_type_id');
+        if (select && select.selectedIndex >= 0) {
+            const selectedOption = select.options[select.selectedIndex];
+            const price = selectedOption.getAttribute('data-price');
+            if (price) {
+                document.getElementById('price').value = price;
+            }
+        }
+    }
+
+    // Групповое добавление - обновление значения
+    function updateCountValue(value) {
+        document.getElementById('countValue').innerText = value;
+        document.getElementById('countNumber').value = value;
+    }
+
+    function updateCountFromNumber(value) {
+        let val = parseInt(value);
+        if (isNaN(val)) val = 1;
+        if (val < 1) val = 1;
+        if (val > 2000) val = 2000;
+        document.getElementById('countValue').innerText = val;
+        document.querySelector('input[name="count"]').value = val;
+    }
+
     // Открытие модального окна
     function openModal(type) {
         document.getElementById(type + 'Modal').style.display = 'flex';
         if (type === 'carpet') {
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('carpetDate').value = today;
+            setTimeout(updatePrice, 10);
         }
     }
 
@@ -617,7 +740,7 @@
         document.getElementById(type + 'Modal').style.display = 'none';
     }
 
-    // Показать/скрыть панель сканирования
+    // Панель сканирования
     function toggleScanPanel() {
         const panel = document.getElementById('scanPanel');
         const btn = document.getElementById('scanToggleBtn');
@@ -667,14 +790,23 @@
                         👤 Швея: ${result.craftsman}<br>
                         💰 Цена: ${result.price} ₽<br>
                         📏 Размер: ${result.size}<br>
-                        📅 Дата: ${result.date_created}<br>
-                        📊 Статус: ${result.status === 'scanned' ? 'Отсканирован' : result.status}
+                        🧵 Материал: ${result.material}<br>
+                        🎨 Цвет: ${result.color}<br>
+                        🕐 <strong>Отсканирован: ${result.scanned_at}</strong><br>
+                        📊 Статус: ✅ Готов к продаже
                     </div>
                 `;
                 qrInput.value = '';
                 setTimeout(() => {
                     location.reload();
                 }, 2000);
+            } else if (result.already_scanned) {
+                resultDiv.innerHTML = `
+                    <div style="background: #f39c12; padding: 12px; border-radius: 8px;">
+                        ⚠️ ${result.message}<br>
+                        📅 Был отсканирован: ${result.scanned_at}
+                    </div>
+                `;
             } else {
                 resultDiv.innerHTML = `
                     <div style="background: #e74c3c; padding: 12px; border-radius: 8px;">
@@ -688,23 +820,37 @@
         }
     }
 
-    // Удаление ковра
+    // Удаление
     function deleteCarpet(id) {
         if (confirm('🗑️ Удалить ковёр?\n\nЭто действие нельзя отменить.')) {
             window.location.href = '/delete_carpet/' + id;
         }
     }
 
-    // Удаление швеи
     function deleteCraftsman(id) {
         if (confirm('🗑️ Удалить швею?\n\nВсе ковры этой швеи также будут удалены!')) {
             window.location.href = '/delete_craftsman/' + id;
         }
     }
 
-    // Печать QR-кода
     function printQR(carpetId) {
         window.open('/print_qr/' + carpetId, '_blank', 'width=450,height=600');
+    }
+
+    // Предупреждение при массовом добавлении
+    const groupSubmitBtn = document.getElementById('groupSubmitBtn');
+    if (groupSubmitBtn) {
+        groupSubmitBtn.addEventListener('click', function(e) {
+            const count = parseInt(document.querySelector('input[name="count"]').value);
+            if (count > 500) {
+                if (!confirm(`⚠️ Вы собираетесь создать ${count} ковров. Это может занять несколько минут. Продолжить?`)) {
+                    e.preventDefault();
+                } else {
+                    this.innerHTML = '⏳ Создание... пожалуйста, подождите';
+                    this.disabled = true;
+                }
+            }
+        });
     }
 
     // Обработка Enter для сканера
@@ -719,7 +865,6 @@
         }
     });
 
-    // Закрытие модальных окон при клике вне
     window.onclick = function(event) {
         if (event.target.classList.contains('modal')) {
             event.target.style.display = 'none';

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Массовая печать QR-кодов</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            text-align: center;
+        }
+        .content { padding: 25px; }
+        .filter-form {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+        }
+        .filter-row {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+        .filter-group {
+            flex: 1;
+            min-width: 150px;
+        }
+        .filter-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            font-size: 13px;
+        }
+        .filter-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+        .btn {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 10px;
+            font-size: 16px;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-primary { background: #27ae60; }
+        .btn-info { background: #3498db; }
+        .info {
+            background: #e8f4fd;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-size: 14px;
+        }
+        .back-btn {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 20px;
+            background: #95a5a6;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>🖨️ Массовая печать QR-кодов</h1>
+        <p>Печать наклеек для ковров</p>
+    </div>
+    
+    <div class="content">
+        <!-- Фильтрация по типам -->
+        <form method="GET" class="filter-form" id="filterForm">
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label>🏷️ Фильтр по типу ковра:</label>
+                    <select name="carpet_type_id" id="carpetTypeSelect">
+                        <option value="">Все типы</option>
+                        {% for type in carpet_types %}
+                        <option value="{{ type.id }}" {% if selected_type == type.id|string %}selected{% endif %}>
+                            {{ type.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>📊 Фильтр по статусу:</label>
+                    <select name="status" id="statusSelect">
+                        <option value="">Все статусы</option>
+                        <option value="created" {% if selected_status == 'created' %}selected{% endif %}>Создан</option>
+                        <option value="scanned" {% if selected_status == 'scanned' %}selected{% endif %}>Отсканирован</option>
+                        <option value="sold" {% if selected_status == 'sold' %}selected{% endif %}>Продан</option>
+                    </select>
+                </div>
+            </div>
+        </form>
+        
+        <div class="info">
+            <strong>📊 Статистика:</strong><br>
+            🔹 Всего ковров: {{ carpets|length }} шт.<br>
+            🔹 Отсканировано: {{ carpets|selectattr('status', 'equalto', 'scanned')|list|length }} шт.<br>
+            🔹 Готово к печати: {{ carpets|length }} шт.
+        </div>
+        
+        <div class="btn-group">
+            <a href="{{ url_for('generate_qr_zip', carpet_type_id=selected_type, status=selected_status) }}" class="btn">📦 Скачать ZIP ({{ carpets|length }} шт.)</a>
+            <a href="{{ url_for('generate_qr_pdf', carpet_type_id=selected_type, status=selected_status) }}" class="btn btn-primary">📄 Скачать PDF (наклейки A4)</a>
+        </div>
+        
+        <div style="margin-top: 15px; text-align: center;">
+            <a href="{{ url_for('generate_qr_zip', carpet_type_id=selected_type, status=selected_status) }}" class="btn btn-info">🔄 Обновить</a>
+        </div>
+        
+        <div style="margin-top: 20px;">
+            <h3>📋 Список ковров для печати:</h3>
+            <div style="max-height: 300px; overflow-y: auto; margin-top: 10px;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Тип</th>
+                            <th>Швея</th>
+                            <th>Цена</th>
+                            <th>Статус</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for carpet in carpets %}
+                        <tr>
+                            <td>{{ carpet.carpet_id }}</td>
+                            <td>{{ carpet.carpet_type_ref.name if carpet.carpet_type_ref else '-' }}</td>
+                            <td>{{ carpet.craftsman_ref.name if carpet.craftsman_ref else '-' }}</td>
+                            <td>{{ carpet.price }} ₽</td>
+                            <td>
+                                {% if carpet.status == 'created' %}📦 Создан
+                                {% elif carpet.status == 'scanned' %}✅ Отсканирован
+                                {% else %}💰 Продан{% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <a href="/" class="back-btn">← На главную</a>
+    </div>
+</div>
+
+<script>
+    // Автоматическое обновление при изменении фильтра
+    document.getElementById('carpetTypeSelect').addEventListener('change', function() {
+        document.getElementById('filterForm').submit();
+    });
+    document.getElementById('statusSelect').addEventListener('change', function() {
+        document.getElementById('filterForm').submit();
+    });
+</script>
+</body>
+</html>
