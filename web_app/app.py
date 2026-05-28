@@ -329,6 +329,17 @@ def add_type():
     flash(f'Тип "{name}" успешно добавлен!', 'success')
     return redirect(url_for('types_list'))
 
+@app.route('/get_type/<int:id>')
+def get_type(id):
+    """Получить данные типа в формате JSON (для AJAX)"""
+    carpet_type = CarpetType.query.get_or_404(id)
+    return jsonify({
+        'success': True,
+        'name': carpet_type.name,
+        'price': carpet_type.base_price,
+        'description': carpet_type.description
+    })
+
 @app.route('/edit_type/<int:id>', methods=['POST'])
 def edit_type(id):
     """Редактирование типа ковра"""
@@ -409,6 +420,7 @@ def scan_qr():
         'color': carpet.color or '-',
         'date_created': carpet.date_created,
         'scanned_at': carpet.scanned_at,
+        'status': carpet.status,
         'message': f'✅ Ковёр {carpet.carpet_id} успешно отсканирован и готов к продаже!'
     })
 
@@ -437,7 +449,7 @@ def print_qr(carpet_id):
     """Страница для печати QR-кода"""
     carpet = Carpet.query.filter_by(carpet_id=carpet_id).first()
     if carpet:
-        return render_template('print_qr.html', carpet=carpet, carpet_types=CarpetType.query.all())
+        return render_template('print_qr.html', carpet=carpet)
     return "Ковёр не найден", 404
 
 # ========== ПОИСК И СТАТИСТИКА ==========
@@ -461,8 +473,7 @@ def search():
     return render_template('search.html', 
                          carpets=carpets, 
                          query=q, 
-                         status=status,
-                         carpet_types=CarpetType.query.all())
+                         status=status)
 
 @app.route('/stats')
 def stats():
@@ -481,6 +492,7 @@ def stats():
             ScanLog.result == 'success'
         ).count()
         scans_stats.append({'date': date, 'count': count})
+    scans_stats.reverse()
     
     return render_template('stats.html',
         total_carpets=total_carpets,

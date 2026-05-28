@@ -91,43 +91,23 @@
         </div>
         <div class="content">
             <div class="search-form">
-                <form method="GET">
+                <form method="GET" action="/search">
                     <div class="form-row">
                         <div class="form-group">
                             <label>Поиск по тексту:</label>
                             <input type="text" name="q" placeholder="ID или имя швеи..." value="{{ query }}">
                         </div>
                         <div class="form-group">
-                            <label>Тип ковра:</label>
-                            <select name="carpet_type">
-                                <option value="">Все</option>
-                                {% for key, type in carpet_types.items() %}
-                                <option value="{{ key }}" {% if carpet_type == key %}selected{% endif %}>
-                                    {{ type.name }}
-                                </option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="form-group">
                             <label>Статус:</label>
                             <select name="status">
                                 <option value="">Все</option>
                                 <option value="created" {% if status == 'created' %}selected{% endif %}>Создан</option>
-                                <option value="in_progress" {% if status == 'in_progress' %}selected{% endif %}>В работе</option>
-                                <option value="completed" {% if status == 'completed' %}selected{% endif %}>Готов</option>
+                                <option value="scanned" {% if status == 'scanned' %}selected{% endif %}>Отсканирован</option>
                                 <option value="sold" {% if status == 'sold' %}selected{% endif %}>Продан</option>
                             </select>
                         </div>
                     </div>
                     <div class="form-row">
-                        <div class="form-group">
-                            <label>Дата от:</label>
-                            <input type="date" name="date_from" value="{{ date_from }}">
-                        </div>
-                        <div class="form-group">
-                            <label>Дата до:</label>
-                            <input type="date" name="date_to" value="{{ date_to }}">
-                        </div>
                         <div class="form-group">
                             <label>&nbsp;</label>
                             <button type="submit">🔍 Искать</button>
@@ -154,21 +134,21 @@
                     <tbody>
                         {% for carpet in carpets %}
                         <tr>
-                            <td>{{ carpet.carpet_id }}</td>
-                            <td>{{ carpet_types[carpet.carpet_type]['name'] }}</td>
-                            <td>{{ carpet.craftsman.name }}</td>
+                            <td><strong>{{ carpet.carpet_id }}</strong></td>
+                            <td>{{ carpet.carpet_type_ref.name if carpet.carpet_type_ref else '-' }}</td>
+                            <td>{{ carpet.craftsman_ref.name if carpet.craftsman_ref else '-' }}</td>
                             <td>{{ carpet.price }} ₽</td>
                             <td>{{ carpet.size or '-' }}</td>
                             <td>{{ carpet.date_created }}</td>
                             <td>
                                 {% if carpet.status == 'created' %}
-                                <span class="status-badge" style="background: #3498db;">Создан</span>
-                                {% elif carpet.status == 'in_progress' %}
-                                <span class="status-badge" style="background: #f39c12;">В работе</span>
-                                {% elif carpet.status == 'completed' %}
-                                <span class="status-badge" style="background: #27ae60;">Готов</span>
+                                <span class="status-badge" style="background: #3498db;">📦 Создан</span>
+                                {% elif carpet.status == 'scanned' %}
+                                <span class="status-badge" style="background: #27ae60;">✅ Отсканирован</span>
+                                {% elif carpet.status == 'sold' %}
+                                <span class="status-badge" style="background: #95a5a6;">💰 Продан</span>
                                 {% else %}
-                                <span class="status-badge" style="background: #95a5a6;">Продан</span>
+                                <span class="status-badge" style="background: #95a5a6;">{{ carpet.status }}</span>
                                 {% endif %}
                             </td>
                         </tr>

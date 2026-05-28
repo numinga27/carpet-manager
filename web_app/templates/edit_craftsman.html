@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Редактирование швеи - Ковровый учёт</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+        }
+
+        .info-box {
+            background: #e8f4fd;
+            padding: 12px 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: #2c3e50;
+            border-left: 4px solid #3498db;
+        }
+
+        .info-box strong {
+            color: #667eea;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 25px;
+        }
+
+        .btn-save {
+            flex: 1;
+            padding: 12px;
+            background: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .btn-save:hover {
+            background: #229954;
+            transform: translateY(-2px);
+        }
+
+        .btn-cancel {
+            flex: 1;
+            padding: 12px;
+            background: #95a5a6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .btn-cancel:hover {
+            background: #7f8c8d;
+            transform: translateY(-2px);
+        }
+
+        .carpets-list {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+
+        .carpets-list h3 {
+            font-size: 14px;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .carpet-item {
+            padding: 5px 0;
+            font-size: 12px;
+            color: #555;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .carpet-item:last-child {
+            border-bottom: none;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
+        .badge-created { background: #3498db; color: white; }
+        .badge-scanned { background: #27ae60; color: white; }
+        .badge-sold { background: #95a5a6; color: white; }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+            
+            .btn-group {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>✏️ Редактирование швеи</h1>
+            <p>Изменение информации о мастерице</p>
+        </div>
+        
+        <div class="content">
+            <div class="info-box">
+                📍 <strong>{{ craftsman.name }}</strong><br>
+                Всего ковров: <strong>{{ craftsman.carpets|length }}</strong>
+            </div>
+            
+            <form method="POST">
+                <div class="form-group">
+                    <label>ФИО швеи *</label>
+                    <input type="text" name="name" value="{{ craftsman.name }}" required 
+                           placeholder="Иванова Анна Петровна">
+                </div>
+                
+                <div class="form-group">
+                    <label>Телефон</label>
+                    <input type="text" name="phone" value="{{ craftsman.phone or '' }}" 
+                           placeholder="+7-XXX-XXX-XX-XX">
+                </div>
+                
+                <div class="btn-group">
+                    <button type="submit" class="btn-save">💾 Сохранить изменения</button>
+                    <a href="/"><button type="button" class="btn-cancel">❌ Отмена</button></a>
+                </div>
+            </form>
+            
+            {% if craftsman.carpets|length > 0 %}
+            <div class="carpets-list">
+                <h3>📋 Ковры этой швеи ({{ craftsman.carpets|length }} шт.):</h3>
+                {% for carpet in craftsman.carpets %}
+                <div class="carpet-item">
+                    <strong>{{ carpet.carpet_id }}</strong> - {{ carpet.price }} ₽
+                    {% if carpet.status == 'created' %}
+                        <span class="badge badge-created">Создан</span>
+                    {% elif carpet.status == 'scanned' %}
+                        <span class="badge badge-scanned">Отсканирован</span>
+                    {% elif carpet.status == 'sold' %}
+                        <span class="badge badge-sold">Продан</span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

@@ -90,22 +90,27 @@
                     <p>Всего ковров</p>
                 </div>
                 <div class="stat-card">
-                    <h2>{{ total_scans }}</h2>
-                    <p>Всего сканирований</p>
+                    <h2>{{ scanned_count }}</h2>
+                    <p>Отсканировано</p>
                 </div>
                 <div class="stat-card">
-                    <h2>{{ craftsmen_stats|length }}</h2>
-                    <p>Активных швей</p>
+                    <h2>{{ sold_count }}</h2>
+                    <p>Продано</p>
+                </div>
+                <div class="stat-card">
+                    <h2>{{ created_count }}</h2>
+                    <p>В производстве</p>
                 </div>
             </div>
             
             <div class="stats-section">
                 <h3>📊 По типам ковров:</h3>
                 <div class="stats-list">
-                    {% for name, count in type_stats.items() %}
+                    {% for type in carpet_types %}
                     <div class="stats-item">
-                        <strong>{{ name }}</strong><br>
-                        Ковров: {{ count }}
+                        <strong>{{ type.name }}</strong><br>
+                        Цена: {{ type.base_price }} ₽<br>
+                        Ковров: {{ type.carpets|length }}
                     </div>
                     {% endfor %}
                 </div>
@@ -115,14 +120,14 @@
                 <h3>👥 По швеям:</h3>
                 <table>
                     <thead>
-                        <tr><th>Швея</th><th>Количество ковров</th><th>Общая стоимость</th></tr>
+                        <tr><th>Швея</th><th>Количество ковров</th><th>Отсканировано</th></tr>
                     </thead>
                     <tbody>
                         {% for stat in craftsmen_stats %}
                         <tr>
-                            <td>{{ stat.name }}</td>
+                            <td><strong>{{ stat.name }}</strong></td>
                             <td>{{ stat.count }}</td>
-                            <td>{{ stat.total_price }} ₽</td>
+                            <td>{{ stat.scanned }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -130,17 +135,17 @@
             </div>
             
             <div class="stats-section">
-                <h3>📅 Производство по датам (последние 30 дней):</h3>
-                {% if date_stats %}
+                <h3>📅 Сканирования за последние 7 дней:</h3>
+                {% if scans_stats %}
                 <div style="display: flex; flex-wrap: wrap; gap: 10px;">
-                    {% for stat in date_stats %}
+                    {% for stat in scans_stats %}
                     <div style="background: #667eea; color: white; padding: 8px 12px; border-radius: 8px;">
                         {{ stat.date }}: {{ stat.count }} шт.
                     </div>
                     {% endfor %}
                 </div>
                 {% else %}
-                <p>Нет данных за последние 30 дней</p>
+                <p>Нет данных</p>
                 {% endif %}
             </div>
         </div>
