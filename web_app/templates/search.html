@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Поиск - Ковровый учёт</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header a { color: white; text-decoration: none; }
+        .content { padding: 30px; }
+        .search-form {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        th { background: #f8f9fa; }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 5px;
+            color: white;
+            font-size: 12px;
+        }
+        @media (max-width: 768px) {
+            .form-row { grid-template-columns: 1fr; }
+            table { font-size: 12px; display: block; overflow-x: auto; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Расширенный поиск</h1>
+            <a href="/">← На главную</a>
+        </div>
+        <div class="content">
+            <div class="search-form">
+                <form method="GET">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Поиск по тексту:</label>
+                            <input type="text" name="q" placeholder="ID или имя швеи..." value="{{ query }}">
+                        </div>
+                        <div class="form-group">
+                            <label>Тип ковра:</label>
+                            <select name="carpet_type">
+                                <option value="">Все</option>
+                                {% for key, type in carpet_types.items() %}
+                                <option value="{{ key }}" {% if carpet_type == key %}selected{% endif %}>
+                                    {{ type.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Статус:</label>
+                            <select name="status">
+                                <option value="">Все</option>
+                                <option value="created" {% if status == 'created' %}selected{% endif %}>Создан</option>
+                                <option value="in_progress" {% if status == 'in_progress' %}selected{% endif %}>В работе</option>
+                                <option value="completed" {% if status == 'completed' %}selected{% endif %}>Готов</option>
+                                <option value="sold" {% if status == 'sold' %}selected{% endif %}>Продан</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Дата от:</label>
+                            <input type="date" name="date_from" value="{{ date_from }}">
+                        </div>
+                        <div class="form-group">
+                            <label>Дата до:</label>
+                            <input type="date" name="date_to" value="{{ date_to }}">
+                        </div>
+                        <div class="form-group">
+                            <label>&nbsp;</label>
+                            <button type="submit">🔍 Искать</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            
+            <h3>Результаты: {{ carpets|length }} ковров</h3>
+            {% if carpets %}
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Тип</th>
+                            <th>Швея</th>
+                            <th>Цена</th>
+                            <th>Размер</th>
+                            <th>Дата</th>
+                            <th>Статус</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for carpet in carpets %}
+                        <tr>
+                            <td>{{ carpet.carpet_id }}</td>
+                            <td>{{ carpet_types[carpet.carpet_type]['name'] }}</td>
+                            <td>{{ carpet.craftsman.name }}</td>
+                            <td>{{ carpet.price }} ₽</td>
+                            <td>{{ carpet.size or '-' }}</td>
+                            <td>{{ carpet.date_created }}</td>
+                            <td>
+                                {% if carpet.status == 'created' %}
+                                <span class="status-badge" style="background: #3498db;">Создан</span>
+                                {% elif carpet.status == 'in_progress' %}
+                                <span class="status-badge" style="background: #f39c12;">В работе</span>
+                                {% elif carpet.status == 'completed' %}
+                                <span class="status-badge" style="background: #27ae60;">Готов</span>
+                                {% else %}
+                                <span class="status-badge" style="background: #95a5a6;">Продан</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p>Ничего не найдено</p>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

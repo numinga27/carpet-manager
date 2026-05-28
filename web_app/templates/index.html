@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ковровый учёт</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .nav {
+            display: flex;
+            gap: 12px;
+            padding: 15px 25px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            flex-wrap: wrap;
+        }
+
+        .nav button {
+            padding: 10px 20px;
+            border: none;
+            background: #667eea;
+            color: white;
+            cursor: pointer;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .nav button:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+        }
+
+        .content {
+            padding: 25px;
+        }
+
+        .flash-messages {
+            margin-bottom: 20px;
+        }
+
+        .flash-success {
+            background: #27ae60;
+            color: white;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .flash-error {
+            background: #e74c3c;
+            color: white;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .flash-info {
+            background: #3498db;
+            color: white;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .scan-panel {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            color: white;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .scan-panel h3 {
+            margin-bottom: 8px;
+            font-size: 18px;
+        }
+
+        .scan-panel p {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-bottom: 15px;
+        }
+
+        .scan-input {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .scan-input input {
+            flex: 1;
+            padding: 12px 15px;
+            font-size: 16px;
+            border: none;
+            border-radius: 10px;
+            outline: none;
+            font-family: monospace;
+        }
+
+        .scan-input input:focus {
+            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+        }
+
+        .scan-result {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            font-size: 14px;
+        }
+
+        h2 {
+            margin: 25px 0 15px 0;
+            color: #333;
+            font-size: 20px;
+            border-left: 4px solid #667eea;
+            padding-left: 15px;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            border-radius: 12px;
+            border: 1px solid #e9ecef;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        th {
+            background: #f8f9fa;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #495057;
+            border-bottom: 2px solid #dee2e6;
+        }
+
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #e9ecef;
+            vertical-align: middle;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            color: white;
+        }
+
+        .status-created { background: #3498db; }
+        .status-scanned { background: #27ae60; }
+        .status-sold { background: #95a5a6; }
+
+        .action-buttons {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 5px 10px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-edit { background: #f39c12; color: white; }
+        .btn-print { background: #3498db; color: white; }
+        .btn-delete { background: #e74c3c; color: white; }
+        .btn-scan { background: #27ae60; color: white; }
+        .btn-close { background: #95a5a6; color: white; }
+
+        .btn:hover {
+            opacity: 0.85;
+            transform: scale(1.02);
+        }
+
+        .qr-preview {
+            max-width: 45px;
+            max-height: 45px;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: transform 0.2s;
+            border: 1px solid #ddd;
+        }
+
+        .qr-preview:hover {
+            transform: scale(1.1);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 25px;
+            width: 480px;
+            max-width: 90%;
+            border-radius: 20px;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal-content h2 {
+            margin-top: 0;
+            margin-bottom: 20px;
+            border-left: none;
+            padding-left: 0;
+            text-align: center;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            color: #333;
+            font-size: 13px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        .modal-buttons button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .btn-save {
+            background: #27ae60;
+            color: white;
+        }
+
+        .btn-cancel {
+            background: #95a5a6;
+            color: white;
+        }
+
+        .info-note {
+            background: #e8f4fd;
+            padding: 12px 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: #2c3e50;
+            border-left: 4px solid #3498db;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .nav {
+                flex-direction: column;
+            }
+
+            .nav button {
+                width: 100%;
+            }
+
+            th, td {
+                padding: 8px;
+                font-size: 12px;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+
+            .modal-content {
+                width: 95%;
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>🧵 Ковровый учёт</h1>
+        <p>Система управления производством ковров</p>
+    </div>
+
+    <div class="nav">
+        <button onclick="openModal('carpet')">➕ Добавить ковёр</button>
+        <button onclick="openModal('craftsman')">👤 Добавить швею</button>
+        <button onclick="window.location.href='/types'">🏷️ Типы ковров</button>
+        <button onclick="window.location.href='/search'">🔍 Расширенный поиск</button>
+        <button onclick="window.location.href='/stats'">📊 Статистика</button>
+        <button onclick="toggleScanPanel()" id="scanToggleBtn">📷 Сканировать QR</button>
+    </div>
+
+    <div class="content">
+        <!-- Flash сообщения -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash-{{ category if category in ['success', 'error', 'info'] else 'info' }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <!-- Информация о сканере -->
+        <div class="info-note">
+            💡 <strong>Как сканировать QR-код:</strong> Подключите USB-сканер, наведите на QR-код — 
+            данные появятся автоматически. Или введите ID ковра вручную и нажмите Enter.
+        </div>
+
+        <!-- Панель сканирования -->
+        <div id="scanPanel" class="scan-panel" style="display: none;">
+            <h3>📷 Сканирование QR-кода</h3>
+            <p>Наведите USB-сканер на QR-код или введите ID вручную:</p>
+            <div class="scan-input">
+                <input type="text" id="qrInput" placeholder="Например: CARPET-0001" autofocus>
+                <button class="btn btn-scan" onclick="scanQR()">🔍 Проверить</button>
+                <button class="btn btn-close" onclick="closeScanPanel()">✖️ Закрыть</button>
+            </div>
+            <div id="scanResult" class="scan-result"></div>
+        </div>
+
+        <!-- Таблица ковров -->
+        <h2>📋 Список ковров</h2>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID ковра</th>
+                        <th>QR</th>
+                        <th>Тип</th>
+                        <th>Швея</th>
+                        <th>Цена</th>
+                        <th>Размер</th>
+                        <th>Дата</th>
+                        <th>Статус</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for carpet in carpets %}
+                    <tr>
+                        <td><strong>{{ carpet.carpet_id }}</strong></td>
+                        <td>
+                            {% if carpet.qr_code_path %}
+                            <img src="/get_qr/{{ carpet.carpet_id }}" class="qr-preview" 
+                                 onclick="window.open('/get_qr/{{ carpet.carpet_id }}')" 
+                                 title="Нажмите для просмотра QR-кода">
+                            {% else %}
+                                <span style="color: #999;">Нет QR</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ carpet.carpet_type_ref.name if carpet.carpet_type_ref else '-' }}</td>
+                        <td>{{ carpet.craftsman_ref.name if carpet.craftsman_ref else '-' }}</td>
+                        <td><strong>{{ carpet.price }} ₽</strong></td>
+                        <td>{{ carpet.size or '-' }}</td>
+                        <td>{{ carpet.date_created }}</td>
+                        <td>
+                            {% if carpet.status == 'created' %}
+                                <span class="status-badge status-created">📦 Создан</span>
+                            {% elif carpet.status == 'scanned' %}
+                                <span class="status-badge status-scanned">✅ Отсканирован</span>
+                            {% elif carpet.status == 'sold' %}
+                                <span class="status-badge status-sold">💰 Продан</span>
+                            {% else %}
+                                <span class="status-badge status-created">{{ carpet.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="action-buttons">
+                            <a href="/edit_carpet/{{ carpet.id }}">
+                                <button class="btn btn-edit">✏️ Ред.</button>
+                            </a>
+                            <button class="btn btn-print" onclick="printQR('{{ carpet.carpet_id }}')">🖨️ QR</button>
+                            <button class="btn btn-delete" onclick="deleteCarpet({{ carpet.id }})">🗑️ Удалить</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Таблица швей -->
+        <h2>👥 Список швей</h2>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Имя</th>
+                        <th>Телефон</th>
+                        <th>Кол-во ковров</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for craftsman in craftsmen %}
+                    <tr>
+                        <td>{{ craftsman.id }}</td>
+                        <td><strong>{{ craftsman.name }}</strong></td>
+                        <td>{{ craftsman.phone or '-' }}</td>
+                        <td>{{ craftsman.carpets|length }}</td>
+                        <td class="action-buttons">
+                            <a href="/edit_craftsman/{{ craftsman.id }}">
+                                <button class="btn btn-edit">✏️ Ред.</button>
+                            </a>
+                            <button class="btn btn-delete" onclick="deleteCraftsman({{ craftsman.id }})" 
+                                {% if craftsman.carpets|length > 0 %}disabled title="Сначала удалите ковры этой швеи"{% endif %}>
+                                🗑️ Удалить
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно добавления ковра -->
+<div id="carpetModal" class="modal">
+    <div class="modal-content">
+        <h2>➕ Добавить ковёр</h2>
+        <form action="/add_carpet" method="POST">
+            <div class="form-group">
+                <label>Тип ковра *</label>
+                <select name="carpet_type_id" required>
+                    {% for type in carpet_types %}
+                    <option value="{{ type.id }}">{{ type.name }} - {{ type.base_price }} ₽</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Швея *</label>
+                <select name="craftsman_id" required>
+                    {% for craftsman in craftsmen %}
+                    <option value="{{ craftsman.id }}">{{ craftsman.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Цена (₽) *</label>
+                <input type="number" name="price" step="1000" required placeholder="15000">
+            </div>
+            <div class="form-group">
+                <label>Размер (м)</label>
+                <input type="text" name="size" placeholder="2x3 м">
+            </div>
+            <div class="form-group">
+                <label>Материал</label>
+                <input type="text" name="material" placeholder="Шерсть, Хлопок...">
+            </div>
+            <div class="form-group">
+                <label>Цвет</label>
+                <input type="text" name="color" placeholder="Красный, Синий...">
+            </div>
+            <div class="form-group">
+                <label>Дата создания *</label>
+                <input type="date" name="date_created" id="carpetDate" required>
+            </div>
+            <div class="form-group">
+                <label>Примечания</label>
+                <textarea name="notes" placeholder="Дополнительная информация..."></textarea>
+            </div>
+            <div class="modal-buttons">
+                <button type="submit" class="btn-save">💾 Сохранить</button>
+                <button type="button" class="btn-cancel" onclick="closeModal('carpet')">❌ Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Модальное окно добавления швеи -->
+<div id="craftsmanModal" class="modal">
+    <div class="modal-content">
+        <h2>👤 Добавить швею</h2>
+        <form action="/add_craftsman" method="POST">
+            <div class="form-group">
+                <label>ФИО *</label>
+                <input type="text" name="name" required placeholder="Иванова Анна Петровна">
+            </div>
+            <div class="form-group">
+                <label>Телефон</label>
+                <input type="text" name="phone" placeholder="+7-XXX-XXX-XX-XX">
+            </div>
+            <div class="modal-buttons">
+                <button type="submit" class="btn-save">💾 Сохранить</button>
+                <button type="button" class="btn-cancel" onclick="closeModal('craftsman')">❌ Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // Открытие модального окна
+    function openModal(type) {
+        document.getElementById(type + 'Modal').style.display = 'flex';
+        if (type === 'carpet') {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('carpetDate').value = today;
+        }
+    }
+
+    // Закрытие модального окна
+    function closeModal(type) {
+        document.getElementById(type + 'Modal').style.display = 'none';
+    }
+
+    // Показать/скрыть панель сканирования
+    function toggleScanPanel() {
+        const panel = document.getElementById('scanPanel');
+        const btn = document.getElementById('scanToggleBtn');
+        if (panel.style.display === 'none') {
+            panel.style.display = 'block';
+            btn.textContent = '✖️ Закрыть сканер';
+            document.getElementById('qrInput').focus();
+        } else {
+            panel.style.display = 'none';
+            btn.textContent = '📷 Сканировать QR';
+        }
+    }
+
+    function closeScanPanel() {
+        document.getElementById('scanPanel').style.display = 'none';
+        document.getElementById('scanToggleBtn').textContent = '📷 Сканировать QR';
+        document.getElementById('scanResult').innerHTML = '';
+    }
+
+    // Сканирование QR
+    async function scanQR() {
+        const qrInput = document.getElementById('qrInput');
+        const qrCode = qrInput.value.trim();
+        
+        if (!qrCode) {
+            alert('Введите ID ковра (например: CARPET-0001)');
+            return;
+        }
+
+        const resultDiv = document.getElementById('scanResult');
+        resultDiv.innerHTML = '<div style="background: rgba(255,255,255,0.2); padding: 10px; border-radius: 8px;">⏳ Поиск ковра...</div>';
+
+        try {
+            const response = await fetch('/scan_qr', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ qr_code: qrCode })
+            });
+            const result = await response.json();
+
+            if (result.success) {
+                resultDiv.innerHTML = `
+                    <div style="background: #27ae60; padding: 12px; border-radius: 8px;">
+                        <strong>✅ Ковёр найден!</strong><br>
+                        📱 ID: ${result.carpet_id}<br>
+                        🏷️ Тип: ${result.carpet_type}<br>
+                        👤 Швея: ${result.craftsman}<br>
+                        💰 Цена: ${result.price} ₽<br>
+                        📏 Размер: ${result.size}<br>
+                        📅 Дата: ${result.date_created}<br>
+                        📊 Статус: ${result.status === 'scanned' ? 'Отсканирован' : result.status}
+                    </div>
+                `;
+                qrInput.value = '';
+                setTimeout(() => {
+                    location.reload();
+                }, 2000);
+            } else {
+                resultDiv.innerHTML = `
+                    <div style="background: #e74c3c; padding: 12px; border-radius: 8px;">
+                        ❌ ${result.message}<br>
+                        💡 Совет: проверьте правильность ID ковра
+                    </div>
+                `;
+            }
+        } catch (error) {
+            resultDiv.innerHTML = `<div style="background: #e74c3c; padding: 12px; border-radius: 8px;">❌ Ошибка соединения с сервером</div>`;
+        }
+    }
+
+    // Удаление ковра
+    function deleteCarpet(id) {
+        if (confirm('🗑️ Удалить ковёр?\n\nЭто действие нельзя отменить.')) {
+            window.location.href = '/delete_carpet/' + id;
+        }
+    }
+
+    // Удаление швеи
+    function deleteCraftsman(id) {
+        if (confirm('🗑️ Удалить швею?\n\nВсе ковры этой швеи также будут удалены!')) {
+            window.location.href = '/delete_craftsman/' + id;
+        }
+    }
+
+    // Печать QR-кода
+    function printQR(carpetId) {
+        window.open('/print_qr/' + carpetId, '_blank', 'width=450,height=600');
+    }
+
+    // Обработка Enter для сканера
+    document.addEventListener('DOMContentLoaded', function() {
+        const input = document.getElementById('qrInput');
+        if (input) {
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    scanQR();
+                }
+            });
+        }
+    });
+
+    // Закрытие модальных окон при клике вне
+    window.onclick = function(event) {
+        if (event.target.classList.contains('modal')) {
+            event.target.style.display = 'none';
+        }
+    }
+</script>
+</body>
+</html>

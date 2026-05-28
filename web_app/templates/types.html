@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Типы ковров</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .content { padding: 25px; }
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .nav-buttons button {
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th { background: #f8f9fa; }
+        .btn-edit { background: #f39c12; color: white; padding: 5px 10px; border: none; border-radius: 5px; cursor: pointer; }
+        .btn-delete { background: #e74c3c; color: white; padding: 5px 10px; border: none; border-radius: 5px; cursor: pointer; }
+        .flash-success {
+            background: #27ae60;
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        .flash-error {
+            background: #e74c3c;
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: white;
+            padding: 25px;
+            width: 400px;
+            border-radius: 15px;
+        }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: 600; }
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .modal-buttons { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+        .btn-save { background: #27ae60; color: white; padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; }
+        .btn-cancel { background: #95a5a6; color: white; padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>🏷️ Типы ковров</h1>
+        <p>Управление типами и ценами</p>
+    </div>
+    <div class="content">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash-{{ category if category in ['success', 'error'] else 'success' }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <div class="nav-buttons">
+            <button onclick="openAddModal()">➕ Добавить тип</button>
+            <button onclick="window.location.href='/'">← На главную</button>
+        </div>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Название</th>
+                    <th>Базовая цена</th>
+                    <th>Описание</th>
+                    <th>Ковров</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for type in types %}
+                <tr>
+                    <td>{{ type.id }}</td>
+                    <td><strong>{{ type.name }}</strong></td>
+                    <td>{{ type.base_price }} ₽</td>
+                    <td>{{ type.description or '-' }}</td>
+                    <td>{{ type.carpets|length }}</td>
+                    <td>
+                        <button class="btn-edit" onclick="editType({{ type.id }}, '{{ type.name }}', {{ type.base_price }}, '{{ type.description or '' }}')">✏️</button>
+                        <button class="btn-delete" onclick="deleteType({{ type.id }})" {% if type.carpets|length > 0 %}disabled title="Есть ковры"{% endif %}>🗑️</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="addModal" class="modal">
+    <div class="modal-content">
+        <h2>➕ Новый тип ковра</h2>
+        <form action="/add_type" method="POST">
+            <div class="form-group">
+                <label>Название типа *:</label>
+                <input type="text" name="name" required placeholder="Например: Персидский">
+            </div>
+            <div class="form-group">
+                <label>Базовая цена *:</label>
+                <input type="number" name="base_price" step="1000" required placeholder="15000">
+            </div>
+            <div class="form-group">
+                <label>Описание:</label>
+                <textarea name="description" placeholder="Характеристики, особенности..."></textarea>
+            </div>
+            <div class="modal-buttons">
+                <button type="submit" class="btn-save">💾 Сохранить</button>
+                <button type="button" class="btn-cancel" onclick="closeModal('addModal')">Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="editModal" class="modal">
+    <div class="modal-content">
+        <h2>✏️ Редактировать тип</h2>
+        <form id="editForm" method="POST">
+            <div class="form-group">
+                <label>Название типа *:</label>
+                <input type="text" name="name" id="edit_name" required>
+            </div>
+            <div class="form-group">
+                <label>Базовая цена *:</label>
+                <input type="number" name="base_price" id="edit_price" step="1000" required>
+            </div>
+            <div class="form-group">
+                <label>Описание:</label>
+                <textarea name="description" id="edit_description"></textarea>
+            </div>
+            <div class="modal-buttons">
+                <button type="submit" class="btn-save">💾 Сохранить</button>
+                <button type="button" class="btn-cancel" onclick="closeModal('editModal')">Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openAddModal() {
+        document.getElementById('addModal').style.display = 'flex';
+    }
+    
+    function editType(id, name, price, description) {
+        document.getElementById('editForm').action = '/edit_type/' + id;
+        document.getElementById('edit_name').value = name;
+        document.getElementById('edit_price').value = price;
+        document.getElementById('edit_description').value = description;
+        document.getElementById('editModal').style.display = 'flex';
+    }
+    
+    function deleteType(id) {
+        if (confirm('Удалить этот тип? Ковры этого типа не пострадают.')) {
+            window.location.href = '/delete_type/' + id;
+        }
+    }
+    
+    function closeModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+    }
+    
+    window.onclick = function(event) {
+        if (event.target.classList.contains('modal')) {
+            event.target.style.display = 'none';
+        }
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Статистика - Ковровый учёт</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header a { color: white; text-decoration: none; }
+        .content { padding: 30px; }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+        }
+        .stat-card h2 { font-size: 2.5em; margin-bottom: 10px; }
+        .stat-card p { font-size: 1.1em; opacity: 0.9; }
+        .stats-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+        }
+        .stats-section h3 { margin-bottom: 15px; color: #333; }
+        .stats-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .stats-item {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+        .stats-item strong { font-size: 1.2em; color: #667eea; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th { background: #e9ecef; }
+        @media (max-width: 768px) {
+            .stats-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Статистика и аналитика</h1>
+            <a href="/">← На главную</a>
+        </div>
+        <div class="content">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h2>{{ total_carpets }}</h2>
+                    <p>Всего ковров</p>
+                </div>
+                <div class="stat-card">
+                    <h2>{{ total_scans }}</h2>
+                    <p>Всего сканирований</p>
+                </div>
+                <div class="stat-card">
+                    <h2>{{ craftsmen_stats|length }}</h2>
+                    <p>Активных швей</p>
+                </div>
+            </div>
+            
+            <div class="stats-section">
+                <h3>📊 По типам ковров:</h3>
+                <div class="stats-list">
+                    {% for name, count in type_stats.items() %}
+                    <div class="stats-item">
+                        <strong>{{ name }}</strong><br>
+                        Ковров: {{ count }}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <div class="stats-section">
+                <h3>👥 По швеям:</h3>
+                <table>
+                    <thead>
+                        <tr><th>Швея</th><th>Количество ковров</th><th>Общая стоимость</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for stat in craftsmen_stats %}
+                        <tr>
+                            <td>{{ stat.name }}</td>
+                            <td>{{ stat.count }}</td>
+                            <td>{{ stat.total_price }} ₽</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="stats-section">
+                <h3>📅 Производство по датам (последние 30 дней):</h3>
+                {% if date_stats %}
+                <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                    {% for stat in date_stats %}
+                    <div style="background: #667eea; color: white; padding: 8px 12px; border-radius: 8px;">
+                        {{ stat.date }}: {{ stat.count }} шт.
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p>Нет данных за последние 30 дней</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</body>
+</html>

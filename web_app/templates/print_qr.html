@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Печать QR-кода - {{ carpet.carpet_id }}</title>
+    <style>
+        @media print {
+            body { margin: 0; padding: 0; }
+            .no-print { display: none; }
+            .sticker {
+                border: 1px dashed #ccc;
+                page-break-after: avoid;
+            }
+        }
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #f0f0f0;
+        }
+        .sticker {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            text-align: center;
+            width: 250px;
+        }
+        .sticker img {
+            width: 200px;
+            height: 200px;
+            margin: 10px 0;
+        }
+        .sticker h3 {
+            margin: 10px 0;
+            color: #333;
+        }
+        .sticker p {
+            margin: 5px 0;
+            font-size: 12px;
+            color: #666;
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div>
+        <div class="sticker">
+            <h3>🧵 Ковёр #{{ carpet.carpet_id }}</h3>
+            <img src="/get_qr/{{ carpet.carpet_id }}" alt="QR-код">
+            <p><strong>Тип:</strong> {{ carpet_types[carpet.carpet_type]['name'] }}</p>
+            <p><strong>Швея:</strong> {{ carpet.craftsman.name }}</p>
+            <p><strong>Цена:</strong> {{ carpet.price }} ₽</p>
+            <p><strong>Дата:</strong> {{ carpet.date_created }}</p>
+        </div>
+        <div class="no-print" style="text-align: center;">
+            <button onclick="window.print()">🖨️ Распечатать</button>
+            <button onclick="window.close()">❌ Закрыть</button>
+        </div>
+    </div>
+</body>
+</html>
