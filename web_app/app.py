@@ -18,7 +18,8 @@ else:
 
 template_folder = os.path.join(base_path, 'templates')
 app = Flask(__name__, template_folder=template_folder)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///carpets.db'
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(BASE_DIR, "carpets.db")}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = 'your-secret-key-here'
 db = SQLAlchemy(app)
