@@ -2,6 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Массовая печать QR-кодов</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -11,7 +12,7 @@
             padding: 20px;
         }
         .container {
-            max-width: 800px;
+            max-width: 900px;
             margin: 0 auto;
             background: white;
             border-radius: 20px;
@@ -60,7 +61,7 @@
         }
         .btn {
             flex: 1;
-            padding: 15px;
+            padding: 12px;
             text-align: center;
             background: #667eea;
             color: white;
@@ -69,9 +70,11 @@
             font-size: 16px;
             border: none;
             cursor: pointer;
+            transition: all 0.2s;
         }
+        .btn:hover { opacity: 0.85; transform: scale(1.02); }
         .btn-primary { background: #27ae60; }
-        .btn-info { background: #3498db; }
+        .btn-single { background: #e74c3c; }
         .info {
             background: #e8f4fd;
             padding: 15px;
@@ -79,6 +82,18 @@
             margin: 20px 0;
             font-size: 14px;
         }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            font-size: 13px;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th { background: #f8f9fa; }
         .back-btn {
             display: inline-block;
             margin-top: 20px;
@@ -87,6 +102,10 @@
             color: white;
             text-decoration: none;
             border-radius: 8px;
+        }
+        @media (max-width: 768px) {
+            .filter-row { flex-direction: column; }
+            .btn-group { flex-direction: column; }
         }
     </style>
 </head>
@@ -98,11 +117,10 @@
     </div>
     
     <div class="content">
-        <!-- Фильтрация по типам -->
         <form method="GET" class="filter-form" id="filterForm">
             <div class="filter-row">
                 <div class="filter-group">
-                    <label>🏷️ Фильтр по типу ковра:</label>
+                    <label>🏷️ Тип ковра:</label>
                     <select name="carpet_type_id" id="carpetTypeSelect">
                         <option value="">Все типы</option>
                         {% for type in carpet_types %}
@@ -113,7 +131,18 @@
                     </select>
                 </div>
                 <div class="filter-group">
-                    <label>📊 Фильтр по статусу:</label>
+                    <label>👤 Швея:</label>
+                    <select name="craftsman_id" id="craftsmanSelect">
+                        <option value="">Все швеи</option>
+                        {% for craftsman in craftsmen %}
+                        <option value="{{ craftsman.id }}" {% if selected_craftsman == craftsman.id|string %}selected{% endif %}>
+                            {{ craftsman.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>📊 Статус:</label>
                     <select name="status" id="statusSelect">
                         <option value="">Все статусы</option>
                         <option value="created" {% if selected_status == 'created' %}selected{% endif %}>Создан</option>
@@ -132,26 +161,17 @@
         </div>
         
         <div class="btn-group">
-            <a href="{{ url_for('generate_qr_zip', carpet_type_id=selected_type, status=selected_status) }}" class="btn">📦 Скачать ZIP ({{ carpets|length }} шт.)</a>
-            <a href="{{ url_for('generate_qr_pdf', carpet_type_id=selected_type, status=selected_status) }}" class="btn btn-primary">📄 Скачать PDF (наклейки A4)</a>
-        </div>
-        
-        <div style="margin-top: 15px; text-align: center;">
-            <a href="{{ url_for('generate_qr_zip', carpet_type_id=selected_type, status=selected_status) }}" class="btn btn-info">🔄 Обновить</a>
+            <a href="{{ url_for('generate_qr_zip', carpet_type_id=selected_type, craftsman_id=selected_craftsman, status=selected_status) }}" class="btn">📦 Скачать ZIP ({{ carpets|length }} шт.)</a>
+            <a href="{{ url_for('generate_qr_pdf', carpet_type_id=selected_type, craftsman_id=selected_craftsman, status=selected_status) }}" class="btn btn-primary">📄 PDF (12 наклеек/лист)</a>
+            <a href="{{ url_for('generate_single_pages_pdf', carpet_type_id=selected_type, craftsman_id=selected_craftsman, status=selected_status) }}" class="btn btn-single">📄 PDF (каждый на отдельной странице)</a>
         </div>
         
         <div style="margin-top: 20px;">
             <h3>📋 Список ковров для печати:</h3>
-            <div style="max-height: 300px; overflow-y: auto; margin-top: 10px;">
-                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+            <div style="max-height: 300px; overflow-y: auto;">
+                <table>
                     <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Тип</th>
-                            <th>Швея</th>
-                            <th>Цена</th>
-                            <th>Статус</th>
-                        </tr>
+                        <tr><th>ID</th><th>Тип</th><th>Швея</th><th>Цена</th><th>Статус</th></tr>
                     </thead>
                     <tbody>
                         {% for carpet in carpets %}
@@ -160,11 +180,7 @@
                             <td>{{ carpet.carpet_type_ref.name if carpet.carpet_type_ref else '-' }}</td>
                             <td>{{ carpet.craftsman_ref.name if carpet.craftsman_ref else '-' }}</td>
                             <td>{{ carpet.price }} ₽</td>
-                            <td>
-                                {% if carpet.status == 'created' %}📦 Создан
-                                {% elif carpet.status == 'scanned' %}✅ Отсканирован
-                                {% else %}💰 Продан{% endif %}
-                            </td>
+                            <td>{% if carpet.status == 'created' %}Создан{% elif carpet.status == 'scanned' %}Отсканирован{% else %}Продан{% endif %}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -177,8 +193,10 @@
 </div>
 
 <script>
-    // Автоматическое обновление при изменении фильтра
     document.getElementById('carpetTypeSelect').addEventListener('change', function() {
+        document.getElementById('filterForm').submit();
+    });
+    document.getElementById('craftsmanSelect').addEventListener('change', function() {
         document.getElementById('filterForm').submit();
     });
     document.getElementById('statusSelect').addEventListener('change', function() {

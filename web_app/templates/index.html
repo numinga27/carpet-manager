@@ -5,19 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ковровый учёт</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 20px;
         }
-
         .container {
             max-width: 1400px;
             margin: 0 auto;
@@ -26,24 +20,14 @@
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             overflow: hidden;
         }
-
         .header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             padding: 25px 30px;
             text-align: center;
         }
-
-        .header h1 {
-            font-size: 28px;
-            margin-bottom: 8px;
-        }
-
-        .header p {
-            font-size: 14px;
-            opacity: 0.9;
-        }
-
+        .header h1 { font-size: 28px; margin-bottom: 8px; }
+        .header p { font-size: 14px; opacity: 0.9; }
         .nav {
             display: flex;
             gap: 12px;
@@ -52,7 +36,6 @@
             border-bottom: 1px solid #e9ecef;
             flex-wrap: wrap;
         }
-
         .nav button {
             padding: 10px 20px;
             border: none;
@@ -64,44 +47,12 @@
             font-weight: 500;
             transition: all 0.2s ease;
         }
-
-        .nav button:hover {
-            background: #5a67d8;
-            transform: translateY(-2px);
-        }
-
-        .content {
-            padding: 25px;
-        }
-
-        .flash-messages {
-            margin-bottom: 20px;
-        }
-
-        .flash-success {
-            background: #27ae60;
-            color: white;
-            padding: 12px 15px;
-            border-radius: 8px;
-            margin-bottom: 10px;
-        }
-
-        .flash-error {
-            background: #e74c3c;
-            color: white;
-            padding: 12px 15px;
-            border-radius: 8px;
-            margin-bottom: 10px;
-        }
-
-        .flash-info {
-            background: #3498db;
-            color: white;
-            padding: 12px 15px;
-            border-radius: 8px;
-            margin-bottom: 10px;
-        }
-
+        .nav button:hover { background: #5a67d8; transform: translateY(-2px); }
+        .content { padding: 25px; }
+        .flash-messages { margin-bottom: 20px; }
+        .flash-success { background: #27ae60; color: white; padding: 12px 15px; border-radius: 8px; margin-bottom: 10px; }
+        .flash-error { background: #e74c3c; color: white; padding: 12px 15px; border-radius: 8px; margin-bottom: 10px; }
+        .flash-info { background: #3498db; color: white; padding: 12px 15px; border-radius: 8px; margin-bottom: 10px; }
         .scan-panel {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             padding: 20px;
@@ -110,24 +61,9 @@
             color: white;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
         }
-
-        .scan-panel h3 {
-            margin-bottom: 8px;
-            font-size: 18px;
-        }
-
-        .scan-panel p {
-            font-size: 14px;
-            opacity: 0.9;
-            margin-bottom: 15px;
-        }
-
-        .scan-input {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
+        .scan-panel h3 { margin-bottom: 8px; font-size: 18px; }
+        .scan-panel p { font-size: 14px; opacity: 0.9; margin-bottom: 15px; }
+        .scan-input { display: flex; gap: 10px; flex-wrap: wrap; }
         .scan-input input {
             flex: 1;
             padding: 12px 15px;
@@ -137,120 +73,31 @@
             outline: none;
             font-family: monospace;
         }
-
-        .scan-input input:focus {
-            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
-        }
-
-        .scan-result {
-            margin-top: 15px;
-            padding: 12px;
-            border-radius: 10px;
-            background: rgba(255, 255, 255, 0.1);
-            font-size: 14px;
-        }
-
-        h2 {
-            margin: 25px 0 15px 0;
-            color: #333;
-            font-size: 20px;
-            border-left: 4px solid #667eea;
-            padding-left: 15px;
-        }
-
-        .table-wrapper {
-            overflow-x: auto;
-            border-radius: 12px;
-            border: 1px solid #e9ecef;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 14px;
-        }
-
-        th {
-            background: #f8f9fa;
-            padding: 12px;
-            text-align: left;
-            font-weight: 600;
-            color: #495057;
-            border-bottom: 2px solid #dee2e6;
-        }
-
-        td {
-            padding: 10px 12px;
-            border-bottom: 1px solid #e9ecef;
-            vertical-align: middle;
-        }
-
-        tr:hover {
-            background: #f8f9fa;
-        }
-
-        /* Строка швеи - кликабельная */
-        .clickable-row {
-            cursor: pointer;
-        }
-        .clickable-row:hover {
-            background: #e8f4fd;
-        }
-
-        .status-badge {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 500;
-            color: white;
-        }
-
+        .scan-input input:focus { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5); }
+        .scan-result { margin-top: 15px; padding: 12px; border-radius: 10px; background: rgba(255, 255, 255, 0.1); font-size: 14px; }
+        h2 { margin: 25px 0 15px 0; color: #333; font-size: 20px; border-left: 4px solid #667eea; padding-left: 15px; }
+        .table-wrapper { overflow-x: auto; border-radius: 12px; border: 1px solid #e9ecef; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th { background: #f8f9fa; padding: 12px; text-align: left; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; }
+        td { padding: 10px 12px; border-bottom: 1px solid #e9ecef; vertical-align: middle; }
+        tr:hover { background: #f8f9fa; }
+        .clickable-row { cursor: pointer; transition: background 0.2s; }
+        .clickable-row:hover { background: #e8f4fd; }
+        .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; color: white; }
         .status-created { background: #3498db; }
         .status-scanned { background: #27ae60; }
         .status-sold { background: #95a5a6; }
-
-        .action-buttons {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-        }
-
-        .btn {
-            padding: 5px 10px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: 500;
-            transition: all 0.2s;
-        }
-
+        .action-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
+        .btn { padding: 5px 10px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.2s; }
         .btn-edit { background: #f39c12; color: white; }
         .btn-print { background: #3498db; color: white; }
+        .btn-pdf { background: #e74c3c; color: white; }
         .btn-delete { background: #e74c3c; color: white; }
         .btn-scan { background: #27ae60; color: white; }
         .btn-close { background: #95a5a6; color: white; }
-
-        .btn:hover {
-            opacity: 0.85;
-            transform: scale(1.02);
-        }
-
-        .qr-preview {
-            max-width: 45px;
-            max-height: 45px;
-            cursor: pointer;
-            border-radius: 8px;
-            transition: transform 0.2s;
-            border: 1px solid #ddd;
-        }
-
-        .qr-preview:hover {
-            transform: scale(1.1);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-        }
-
+        .btn:hover { opacity: 0.85; transform: scale(1.02); }
+        .qr-preview { max-width: 45px; max-height: 45px; cursor: pointer; border-radius: 8px; transition: transform 0.2s; border: 1px solid #ddd; }
+        .qr-preview:hover { transform: scale(1.1); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); }
         .modal {
             display: none;
             position: fixed;
@@ -263,7 +110,6 @@
             justify-content: center;
             align-items: center;
         }
-
         .modal-content {
             background: white;
             padding: 25px;
@@ -272,41 +118,14 @@
             border-radius: 20px;
             animation: slideIn 0.3s ease;
         }
-
         @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(-50px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            from { opacity: 0; transform: translateY(-50px); }
+            to { opacity: 1; transform: translateY(0); }
         }
-
-        .modal-content h2 {
-            margin-top: 0;
-            margin-bottom: 20px;
-            border-left: none;
-            padding-left: 0;
-            text-align: center;
-        }
-
-        .form-group {
-            margin-bottom: 15px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 6px;
-            font-weight: 500;
-            color: #333;
-            font-size: 13px;
-        }
-
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
+        .modal-content h2 { margin-top: 0; margin-bottom: 20px; border-left: none; padding-left: 0; text-align: center; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 6px; font-weight: 500; color: #333; font-size: 13px; }
+        .form-group input, .form-group select, .form-group textarea {
             width: 100%;
             padding: 10px;
             border: 1px solid #ddd;
@@ -314,45 +133,10 @@
             font-size: 14px;
             font-family: inherit;
         }
-
-        .form-group input:focus,
-        .form-group select:focus,
-        .form-group textarea:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
-        }
-
-        .form-group textarea {
-            resize: vertical;
-            min-height: 60px;
-        }
-
-        .modal-buttons {
-            display: flex;
-            gap: 10px;
-            justify-content: flex-end;
-            margin-top: 20px;
-        }
-
-        .modal-buttons button {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 500;
-        }
-
-        .btn-save {
-            background: #27ae60;
-            color: white;
-        }
-
-        .btn-cancel {
-            background: #95a5a6;
-            color: white;
-        }
-
+        .form-group textarea { resize: vertical; min-height: 60px; }
+        .modal-buttons { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+        .btn-save { background: #27ae60; color: white; }
+        .btn-cancel { background: #95a5a6; color: white; }
         .info-note {
             background: #e8f4fd;
             padding: 12px 15px;
@@ -362,47 +146,22 @@
             color: #2c3e50;
             border-left: 4px solid #3498db;
         }
-
-        .price-hint {
-            font-size: 11px;
-            color: #666;
-            margin-top: 8px;
+        .price-hint { font-size: 11px; color: #666; margin-top: 8px; }
+        .range-labels { display: flex; justify-content: space-between; margin-top: 5px; font-size: 10px; color: #888; }
+        .badge-green {
+            background: #27ae60;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 15px;
+            font-size: 12px;
         }
-
-        .range-labels {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 5px;
-            font-size: 10px;
-            color: #888;
-        }
-
         @media (max-width: 768px) {
-            body {
-                padding: 10px;
-            }
-
-            .nav {
-                flex-direction: column;
-            }
-
-            .nav button {
-                width: 100%;
-            }
-
-            th, td {
-                padding: 8px;
-                font-size: 12px;
-            }
-
-            .action-buttons {
-                flex-direction: column;
-            }
-
-            .modal-content {
-                width: 95%;
-                padding: 20px;
-            }
+            body { padding: 10px; }
+            .nav { flex-direction: column; }
+            .nav button { width: 100%; }
+            th, td { padding: 8px; font-size: 12px; }
+            .action-buttons { flex-direction: column; }
+            .modal-content { width: 95%; padding: 20px; }
         }
     </style>
 </head>
@@ -440,10 +199,10 @@
         <div class="info-note">
             💡 <strong>Как сканировать QR-код:</strong> Подключите USB-сканер, наведите на QR-код — 
             данные появятся автоматически. Или введите ID ковра вручную и нажмите Enter.<br>
-            🕐 <strong>Важно:</strong> Дата сканирования появится только после успешного сканирования.<br>
             💰 <strong>Авто-цена:</strong> При выборе типа ковра цена подставляется автоматически.<br>
             📦 <strong>Групповое добавление:</strong> Можно создать до 2000 ковров за раз.<br>
-            👥 <strong>Статистика швеи:</strong> Нажмите на строку с швеёй для детальной статистики.
+            👥 <strong>Статистика швеи:</strong> Нажмите на строку с швеёй для детальной статистики.<br>
+            🖨️ <strong>Печать QR:</strong> PNG - изображение, PDF - готовый файл для печати.
         </div>
 
         <!-- Панель сканирования -->
@@ -458,7 +217,7 @@
             <div id="scanResult" class="scan-result"></div>
         </div>
 
-        <!-- Таблица ковров (НЕ кликабельная) -->
+        <!-- Таблица ковров -->
         <h2>📋 Список ковров</h2>
         <div class="table-wrapper">
             <table>
@@ -479,42 +238,17 @@
                     {% for carpet in carpets %}
                     <tr>
                         <td><strong>{{ carpet.carpet_id }}</strong></td>
-                        <td>
-                            {% if carpet.qr_code_path %}
-                            <img src="/get_qr/{{ carpet.carpet_id }}" class="qr-preview" 
-                                 onclick="window.open('/get_qr/{{ carpet.carpet_id }}')" 
-                                 title="Нажмите для просмотра QR-кода">
-                            {% else %}
-                                <span style="color: #999;">Нет QR</span>
-                            {% endif %}
-                        </td>
+                        <td>{% if carpet.qr_code_path %}<img src="/get_qr/{{ carpet.carpet_id }}" class="qr-preview" onclick="window.open('/get_qr/{{ carpet.carpet_id }}')" title="Нажмите для просмотра QR-кода">{% else %}<span style="color:#999;">Нет QR</span>{% endif %}</td>
                         <td>{{ carpet.carpet_type_ref.name if carpet.carpet_type_ref else '-' }}</td>
                         <td>{{ carpet.craftsman_ref.name if carpet.craftsman_ref else '-' }}</td>
                         <td><strong>{{ carpet.price }} ₽</strong></td>
                         <td>{{ carpet.size or '-' }}</td>
-                        <td>
-                            {% if carpet.scanned_at %}
-                                <span style="font-size: 12px;">🕐 {{ carpet.scanned_at }}</span>
-                            {% else %}
-                                <span style="color: #999; font-size: 12px;">— не сканирован —</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if carpet.status == 'created' %}
-                                <span class="status-badge status-created">📦 Создан</span>
-                            {% elif carpet.status == 'scanned' %}
-                                <span class="status-badge status-scanned">✅ Отсканирован</span>
-                            {% elif carpet.status == 'sold' %}
-                                <span class="status-badge status-sold">💰 Продан</span>
-                            {% else %}
-                                <span class="status-badge status-created">{{ carpet.status }}</span>
-                            {% endif %}
-                        </td>
+                        <td>{% if carpet.scanned_at %}<span style="font-size:12px;">🕐 {{ carpet.scanned_at }}</span>{% else %}<span style="color:#999; font-size:12px;">— не сканирован —</span>{% endif %}</td>
+                        <td>{% if carpet.status == 'created' %}<span class="status-badge status-created">📦 Создан</span>{% elif carpet.status == 'scanned' %}<span class="status-badge status-scanned">✅ Отсканирован</span>{% else %}<span class="status-badge status-sold">💰 Продан</span>{% endif %}</td>
                         <td class="action-buttons">
-                            <a href="/edit_carpet/{{ carpet.id }}">
-                                <button class="btn btn-edit">✏️ Ред.</button>
-                            </a>
-                            <button class="btn btn-print" onclick="printQR('{{ carpet.carpet_id }}')">🖨️ QR</button>
+                            <a href="/edit_carpet/{{ carpet.id }}"><button class="btn btn-edit">✏️ Ред.</button></a>
+                            <button class="btn btn-print" onclick="printQR('{{ carpet.carpet_id }}')">🖨️ PNG</button>
+                            <button class="btn btn-pdf" onclick="printSinglePDF('{{ carpet.carpet_id }}')">📄 PDF</button>
                             <button class="btn btn-delete" onclick="deleteCarpet({{ carpet.id }})">🗑️ Удалить</button>
                         </td>
                     </tr>
@@ -523,33 +257,37 @@
             </table>
         </div>
 
-        <!-- Таблица швей (КЛИКАБЕЛЬНАЯ) -->
+        <!-- Таблица швей (улучшенная) -->
         <h2>👥 Список швей</h2>
         <div class="table-wrapper">
-            <table>
+            <table style="min-width: 700px;">
                 <thead>
                     <tr>
-                        <th>ID</th>
+                        <th style="width: 50px;">ID</th>
                         <th>Имя</th>
-                        <th>Телефон</th>
-                        <th>Кол-во ковров</th>
-                        <th>Отсканировано</th>
-                        <th>Действия</th>
+                        <th style="width: 150px;">Телефон</th>
+                        <th style="width: 100px; text-align: center;">Ковров</th>
+                        <th style="width: 120px; text-align: center;">Отсканировано</th>
+                        <th style="width: 130px; text-align: center;">Действия</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for craftsman in craftsmen %}
-                    <tr onclick="window.location.href='/craftsman/{{ craftsman.id }}'" class="clickable-row">
-                        <td>{{ craftsman.id }}</td>
+                    <tr class="clickable-row" onclick="window.location.href='/craftsman/{{ craftsman.id }}'">
+                        <td style="text-align: center;">{{ craftsman.id }}</td>
                         <td><strong>{{ craftsman.name }}</strong></td>
-                        <td>{{ craftsman.phone or '-' }}</td>
-                        <td>{{ craftsman.carpets|length }}</td>
-                        <td>{{ craftsman.carpets|selectattr('status', 'equalto', 'scanned')|list|length }}</td>
-                        <td class="action-buttons" onclick="event.stopPropagation()">
-                            <a href="/edit_craftsman/{{ craftsman.id }}">
-                                <button class="btn btn-edit">✏️ Ред.</button>
+                        <td>{{ craftsman.phone or '—' }}</td>
+                        <td style="text-align: center;">{{ craftsman.carpets|length }}</td>
+                        <td style="text-align: center;">
+                            <span class="badge-green">
+                                {{ craftsman.carpets|selectattr('status', 'equalto', 'scanned')|list|length }}
+                            </span>
+                        </td>
+                        <td style="text-align: center;">
+                            <a href="/edit_craftsman/{{ craftsman.id }}" onclick="event.stopPropagation()">
+                                <button class="btn-edit" style="margin-right: 5px;">✏️ Ред.</button>
                             </a>
-                            <button class="btn btn-delete" onclick="deleteCraftsman({{ craftsman.id }})">
+                            <button class="btn-delete" onclick="event.stopPropagation(); deleteCraftsman({{ craftsman.id }})">
                                 🗑️ Удалить
                             </button>
                         </td>
@@ -562,162 +300,61 @@
 </div>
 
 <!-- Модальное окно добавления ковра -->
-<div id="carpetModal" class="modal">
-    <div class="modal-content">
-        <h2>➕ Добавить ковёр</h2>
-        <form action="/add_carpet" method="POST">
-            <div class="form-group">
-                <label>Тип ковра *</label>
-                <select name="carpet_type_id" id="carpet_type_id" required onchange="updatePrice()">
-                    {% for type in carpet_types %}
-                    <option value="{{ type.id }}" data-price="{{ type.base_price }}">
-                        {{ type.name }} - {{ type.base_price }} ₽
-                    </option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Цена (₽) *</label>
-                <input type="number" name="price" id="price" step="1" required placeholder="15000">
-            </div>
-            <div class="form-group">
-                <label>Швея *</label>
-                <select name="craftsman_id" required>
-                    {% for craftsman in craftsmen %}
-                    <option value="{{ craftsman.id }}">{{ craftsman.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Размер (м)</label>
-                <input type="text" name="size" placeholder="2x3 м">
-            </div>
-            <div class="form-group">
-                <label>Материал</label>
-                <input type="text" name="material" placeholder="Шерсть, Хлопок...">
-            </div>
-            <div class="form-group">
-                <label>Цвет</label>
-                <input type="text" name="color" placeholder="Красный, Синий...">
-            </div>
-            <div class="form-group">
-                <label>Примечания</label>
-                <textarea name="notes" placeholder="Дополнительная информация..."></textarea>
-            </div>
-            <div class="modal-buttons">
-                <button type="submit" class="btn-save">💾 Сохранить</button>
-                <button type="button" class="btn-cancel" onclick="closeModal('carpet')">❌ Отмена</button>
-            </div>
-        </form>
-    </div>
-</div>
+<div id="carpetModal" class="modal"><div class="modal-content">
+    <h2>➕ Добавить ковёр</h2>
+    <form action="/add_carpet" method="POST">
+        <div class="form-group"><label>Тип ковра *</label><select name="carpet_type_id" id="carpet_type_id" required onchange="updatePrice()">{% for type in carpet_types %}<option value="{{ type.id }}" data-price="{{ type.base_price }}">{{ type.name }} - {{ type.base_price }} ₽</option>{% endfor %}</select></div>
+        <div class="form-group"><label>Цена (₽) *</label><input type="number" name="price" id="price" step="1" required placeholder="15000"></div>
+        <div class="form-group"><label>Швея *</label><select name="craftsman_id" required>{% for craftsman in craftsmen %}<option value="{{ craftsman.id }}">{{ craftsman.name }}</option>{% endfor %}</select></div>
+        <div class="form-group"><label>Размер (м)</label><input type="text" name="size" placeholder="2x3 м"></div>
+        <div class="form-group"><label>Материал</label><input type="text" name="material" placeholder="Шерсть, Хлопок..."></div>
+        <div class="form-group"><label>Цвет</label><input type="text" name="color" placeholder="Красный, Синий..."></div>
+        <div class="form-group"><label>Примечания</label><textarea name="notes" placeholder="Дополнительная информация..."></textarea></div>
+        <div class="modal-buttons"><button type="submit" class="btn-save">💾 Сохранить</button><button type="button" class="btn-cancel" onclick="closeModal('carpet')">❌ Отмена</button></div>
+    </form>
+</div></div>
 
 <!-- Модальное окно группового добавления -->
-<div id="groupModal" class="modal">
-    <div class="modal-content">
-        <h2>📦 Групповое добавление ковров</h2>
-        <form action="/add_carpet_group" method="POST" id="groupForm">
-            <div class="form-group">
-                <label>Тип ковра *</label>
-                <select name="carpet_type_id" id="group_carpet_type_id" required>
-                    {% for type in carpet_types %}
-                    <option value="{{ type.id }}">
-                        {{ type.name }} - {{ type.base_price }} ₽
-                    </option>
-                    {% endfor %}
-                </select>
-            </div>
-            
-            <div class="form-group">
-                <label>Количество ковров *: <strong id="countValue" style="color: #667eea; font-size: 18px;">10</strong></label>
-                <input type="range" name="count" min="1" max="2000" value="10" oninput="updateCountValue(this.value)" style="width: 100%;">
-                <div class="range-labels">
-                    <span>1</span>
-                    <span>500</span>
-                    <span>1000</span>
-                    <span>1500</span>
-                    <span>2000</span>
-                </div>
-                <div style="margin-top: 10px;">
-                    <input type="number" id="countNumber" min="1" max="2000" value="10" oninput="updateCountFromNumber(this.value)" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 8px;">
-                </div>
-                <div class="price-hint">
-                    ⚡ Можно добавить до 2000 ковров за раз. QR-коды сгенерируются автоматически.
-                </div>
-            </div>
-            
-            <div class="form-group">
-                <label>Швея *</label>
-                <select name="craftsman_id" required>
-                    {% for craftsman in craftsmen %}
-                    <option value="{{ craftsman.id }}">{{ craftsman.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            
-            <div class="form-group">
-                <label>Размер (м)</label>
-                <input type="text" name="size" placeholder="2x3 м">
-            </div>
-            
-            <div class="form-group">
-                <label>Материал</label>
-                <input type="text" name="material" placeholder="Шерсть, Хлопок...">
-            </div>
-            
-            <div class="form-group">
-                <label>Цвет</label>
-                <input type="text" name="color" placeholder="Красный, Синий...">
-            </div>
-            
-            <div class="modal-buttons">
-                <button type="submit" class="btn-save" id="groupSubmitBtn">💾 Создать</button>
-                <button type="button" class="btn-cancel" onclick="closeModal('group')">❌ Отмена</button>
-            </div>
-        </form>
-    </div>
-</div>
+<div id="groupModal" class="modal"><div class="modal-content">
+    <h2>📦 Групповое добавление ковров</h2>
+    <form action="/add_carpet_group" method="POST" id="groupForm">
+        <div class="form-group"><label>Тип ковра *</label><select name="carpet_type_id" required>{% for type in carpet_types %}<option value="{{ type.id }}">{{ type.name }} - {{ type.base_price }} ₽</option>{% endfor %}</select></div>
+        <div class="form-group"><label>Количество *: <strong id="countValue" style="color:#667eea;">10</strong></label>
+            <input type="range" name="count" min="1" max="2000" value="10" oninput="updateCountValue(this.value)" style="width:100%">
+            <div class="range-labels"><span>1</span><span>500</span><span>1000</span><span>1500</span><span>2000</span></div>
+            <input type="number" id="countNumber" min="1" max="2000" value="10" oninput="updateCountFromNumber(this.value)" style="width:100%; margin-top:10px;">
+            <div class="price-hint">⚡ Можно добавить до 2000 ковров за раз. QR-коды сгенерируются автоматически.</div>
+        </div>
+        <div class="form-group"><label>Швея *</label><select name="craftsman_id" required>{% for craftsman in craftsmen %}<option value="{{ craftsman.id }}">{{ craftsman.name }}</option>{% endfor %}</select></div>
+        <div class="form-group"><label>Размер (м)</label><input type="text" name="size" placeholder="2x3 м"></div>
+        <div class="form-group"><label>Материал</label><input type="text" name="material" placeholder="Шерсть, Хлопок..."></div>
+        <div class="form-group"><label>Цвет</label><input type="text" name="color" placeholder="Красный, Синий..."></div>
+        <div class="modal-buttons"><button type="submit" class="btn-save" id="groupSubmitBtn">💾 Создать</button><button type="button" class="btn-cancel" onclick="closeModal('group')">❌ Отмена</button></div>
+    </form>
+</div></div>
 
 <!-- Модальное окно добавления швеи -->
-<div id="craftsmanModal" class="modal">
-    <div class="modal-content">
-        <h2>👤 Добавить швею</h2>
-        <form action="/add_craftsman" method="POST">
-            <div class="form-group">
-                <label>ФИО *</label>
-                <input type="text" name="name" required placeholder="Иванова Анна Петровна">
-            </div>
-            <div class="form-group">
-                <label>Телефон</label>
-                <input type="text" name="phone" placeholder="+7-XXX-XXX-XX-XX">
-            </div>
-            <div class="modal-buttons">
-                <button type="submit" class="btn-save">💾 Сохранить</button>
-                <button type="button" class="btn-cancel" onclick="closeModal('craftsman')">❌ Отмена</button>
-            </div>
-        </form>
-    </div>
-</div>
+<div id="craftsmanModal" class="modal"><div class="modal-content">
+    <h2>👤 Добавить швею</h2>
+    <form action="/add_craftsman" method="POST">
+        <div class="form-group"><label>ФИО *</label><input type="text" name="name" required placeholder="Иванова Анна Петровна"></div>
+        <div class="form-group"><label>Телефон</label><input type="text" name="phone" placeholder="+7-XXX-XXX-XX-XX"></div>
+        <div class="modal-buttons"><button type="submit" class="btn-save">💾 Сохранить</button><button type="button" class="btn-cancel" onclick="closeModal('craftsman')">❌ Отмена</button></div>
+    </form>
+</div></div>
 
 <script>
-    // Автоподстановка цены
     function updatePrice() {
         const select = document.getElementById('carpet_type_id');
         if (select && select.selectedIndex >= 0) {
-            const selectedOption = select.options[select.selectedIndex];
-            const price = selectedOption.getAttribute('data-price');
-            if (price) {
-                document.getElementById('price').value = price;
-            }
+            const price = select.options[select.selectedIndex].getAttribute('data-price');
+            if (price) document.getElementById('price').value = price;
         }
     }
-
-    // Групповое добавление - обновление значения
     function updateCountValue(value) {
         document.getElementById('countValue').innerText = value;
         document.getElementById('countNumber').value = value;
     }
-
     function updateCountFromNumber(value) {
         let val = parseInt(value);
         if (isNaN(val)) val = 1;
@@ -726,21 +363,11 @@
         document.getElementById('countValue').innerText = val;
         document.querySelector('input[name="count"]').value = val;
     }
-
-    // Открытие модального окна
     function openModal(type) {
         document.getElementById(type + 'Modal').style.display = 'flex';
-        if (type === 'carpet') {
-            setTimeout(updatePrice, 10);
-        }
+        if (type === 'carpet') setTimeout(updatePrice, 10);
     }
-
-    // Закрытие модального окна
-    function closeModal(type) {
-        document.getElementById(type + 'Modal').style.display = 'none';
-    }
-
-    // Панель сканирования
+    function closeModal(type) { document.getElementById(type + 'Modal').style.display = 'none'; }
     function toggleScanPanel() {
         const panel = document.getElementById('scanPanel');
         const btn = document.getElementById('scanToggleBtn');
@@ -753,123 +380,53 @@
             btn.textContent = '📷 Сканировать QR';
         }
     }
-
     function closeScanPanel() {
         document.getElementById('scanPanel').style.display = 'none';
         document.getElementById('scanToggleBtn').textContent = '📷 Сканировать QR';
         document.getElementById('scanResult').innerHTML = '';
     }
-
-    // Сканирование QR
     async function scanQR() {
         const qrInput = document.getElementById('qrInput');
         const qrCode = qrInput.value.trim();
-        
-        if (!qrCode) {
-            alert('Введите ID ковра (например: CARPET-0001)');
-            return;
-        }
-
+        if (!qrCode) { alert('Введите ID ковра (например: CARPET-0001)'); return; }
         const resultDiv = document.getElementById('scanResult');
-        resultDiv.innerHTML = '<div style="background: rgba(255,255,255,0.2); padding: 10px; border-radius: 8px;">⏳ Поиск ковра...</div>';
-
+        resultDiv.innerHTML = '<div style="background: rgba(255,255,255,0.2); padding: 10px;">⏳ Поиск ковра...</div>';
         try {
             const response = await fetch('/scan_qr', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ qr_code: qrCode })
             });
             const result = await response.json();
-
             if (result.success) {
-                resultDiv.innerHTML = `
-                    <div style="background: #27ae60; padding: 12px; border-radius: 8px;">
-                        <strong>✅ Ковёр найден!</strong><br>
-                        📱 ID: ${result.carpet_id}<br>
-                        🏷️ Тип: ${result.carpet_type}<br>
-                        👤 Швея: ${result.craftsman}<br>
-                        💰 Цена: ${result.price} ₽<br>
-                        📏 Размер: ${result.size}<br>
-                        🧵 Материал: ${result.material}<br>
-                        🎨 Цвет: ${result.color}<br>
-                        🕐 <strong>Отсканирован: ${result.scanned_at}</strong><br>
-                        📊 Статус: ✅ Готов к продаже
-                    </div>
-                `;
+                resultDiv.innerHTML = `<div style="background: #27ae60; padding: 12px;"><strong>✅ Ковёр найден!</strong><br>📱 ID: ${result.carpet_id}<br>🏷️ Тип: ${result.carpet_type}<br>👤 Швея: ${result.craftsman}<br>💰 Цена: ${result.price} ₽<br>📏 Размер: ${result.size}<br>🕐 Отсканирован: ${result.scanned_at}<br>📊 Статус: ✅ Готов к продаже</div>`;
                 qrInput.value = '';
-                setTimeout(() => {
-                    location.reload();
-                }, 2000);
+                setTimeout(() => location.reload(), 2000);
             } else if (result.already_scanned) {
-                resultDiv.innerHTML = `
-                    <div style="background: #f39c12; padding: 12px; border-radius: 8px;">
-                        ⚠️ ${result.message}<br>
-                        📅 Был отсканирован: ${result.scanned_at}
-                    </div>
-                `;
+                resultDiv.innerHTML = `<div style="background: #f39c12; padding: 12px;">⚠️ ${result.message}<br>📅 Был отсканирован: ${result.scanned_at}</div>`;
             } else {
-                resultDiv.innerHTML = `
-                    <div style="background: #e74c3c; padding: 12px; border-radius: 8px;">
-                        ❌ ${result.message}<br>
-                        💡 Совет: проверьте правильность ID ковра
-                    </div>
-                `;
+                resultDiv.innerHTML = `<div style="background: #e74c3c; padding: 12px;">❌ ${result.message}<br>💡 Совет: проверьте правильность ID ковра</div>`;
             }
         } catch (error) {
-            resultDiv.innerHTML = `<div style="background: #e74c3c; padding: 12px; border-radius: 8px;">❌ Ошибка соединения с сервером</div>`;
+            resultDiv.innerHTML = '<div style="background: #e74c3c; padding: 12px;">❌ Ошибка соединения с сервером</div>';
         }
     }
-
-    // Удаление
-    function deleteCarpet(id) {
-        if (confirm('🗑️ Удалить ковёр?\n\nЭто действие нельзя отменить.')) {
-            window.location.href = '/delete_carpet/' + id;
-        }
-    }
-
-    function deleteCraftsman(id) {
-        if (confirm('🗑️ Удалить швею?\n\nВсе ковры этой швеи также будут удалены!')) {
-            window.location.href = '/delete_craftsman/' + id;
-        }
-    }
-
-    function printQR(carpetId) {
-        window.open('/print_qr/' + carpetId, '_blank', 'width=450,height=600');
-    }
-
-    // Предупреждение при массовом добавлении
-    const groupSubmitBtn = document.getElementById('groupSubmitBtn');
-    if (groupSubmitBtn) {
-        groupSubmitBtn.addEventListener('click', function(e) {
-            const count = parseInt(document.querySelector('input[name="count"]').value);
-            if (count > 500) {
-                if (!confirm(`⚠️ Вы собираетесь создать ${count} ковров. Это может занять несколько минут. Продолжить?`)) {
-                    e.preventDefault();
-                } else {
-                    this.innerHTML = '⏳ Создание... пожалуйста, подождите';
-                    this.disabled = true;
-                }
-            }
-        });
-    }
-
-    // Обработка Enter для сканера
-    document.addEventListener('DOMContentLoaded', function() {
-        const input = document.getElementById('qrInput');
-        if (input) {
-            input.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    scanQR();
-                }
-            });
+    function deleteCarpet(id) { if (confirm('🗑️ Удалить ковёр?\n\nЭто действие нельзя отменить.')) window.location.href = '/delete_carpet/' + id; }
+    function deleteCraftsman(id) { if (confirm('🗑️ Удалить швею?\n\nВсе ковры этой швеи также будут удалены!')) window.location.href = '/delete_craftsman/' + id; }
+    function printQR(carpetId) { window.open('/print_qr/' + carpetId, '_blank', 'width=450,height=600'); }
+    function printSinglePDF(carpetId) { window.open('/print_single_pdf/' + carpetId, '_blank'); }
+    
+    document.getElementById('groupSubmitBtn')?.addEventListener('click', function(e) {
+        const count = parseInt(document.querySelector('input[name="count"]').value);
+        if (count > 500) {
+            if (!confirm(`⚠️ Вы собираетесь создать ${count} ковров. Это может занять несколько минут. Продолжить?`)) e.preventDefault();
+            else { this.innerHTML = '⏳ Создание... пожалуйста, подождите'; this.disabled = true; }
         }
     });
-
-    window.onclick = function(event) {
-        if (event.target.classList.contains('modal')) {
-            event.target.style.display = 'none';
-        }
-    }
+    document.addEventListener('DOMContentLoaded', function() {
+        const input = document.getElementById('qrInput');
+        if (input) input.addEventListener('keypress', function(e) { if (e.key === 'Enter') scanQR(); });
+    });
+    window.onclick = function(event) { if (event.target.classList.contains('modal')) event.target.style.display = 'none'; }
 </script>
 </body>
 </html>
