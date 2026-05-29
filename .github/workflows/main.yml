@@ -23,12 +23,12 @@ jobs:
         python -m pip install --upgrade pip
         pip install pyinstaller
         cd web_app
-        pip install flask flask-sqlalchemy qrcode pillow reportlab opencv-python pyzbar numpy
+        pip install flask flask-sqlalchemy qrcode pillow reportlab
     
     - name: Build with PyInstaller
       run: |
         cd web_app
-        pyinstaller --onefile --windowed --name="CarpetManager" --add-data "templates;templates" app.py
+        pyinstaller --onefile --windowed --name="CarpetManager" --add-data "templates;templates" --add-data "static;static" app.py
     
     - name: Upload artifact
       uses: actions/upload-artifact@v4
