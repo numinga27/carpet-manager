@@ -10,24 +10,60 @@ import time
 import io
 import zipfile
 
-# Определяем пути
+# ========== ОПРЕДЕЛЕНИЕ ПУТЕЙ ДЛЯ РАЗНЫХ ПЛАТФОРМ ==========
 if getattr(sys, 'frozen', False):
-    base_path = sys._MEIPASS
+    # Запуск как .exe
+    base_path = os.path.dirname(sys.executable)
 else:
+    # Запуск как скрипт
     base_path = os.path.dirname(__file__)
 
+# Папка для данных (с возможностью записи)
+DATA_FOLDER = None
+
+# Пробуем создать папку рядом с программой
+local_data_folder = os.path.join(base_path, 'CarpetManagerData')
+try:
+    os.makedirs(local_data_folder, exist_ok=True)
+    # Проверяем, можем ли писать в эту папку
+    test_file = os.path.join(local_data_folder, 'test.txt')
+    with open(test_file, 'w') as f:
+        f.write('test')
+    os.remove(test_file)
+    DATA_FOLDER = local_data_folder
+    print(f"✅ Используется локальная папка: {DATA_FOLDER}")
+except (PermissionError, OSError):
+    # Если нет прав, используем папку пользователя
+    if sys.platform == 'win32':
+        DATA_FOLDER = os.path.join(os.environ.get('APPDATA', os.path.expanduser('~')), 'CarpetManager')
+    else:
+        DATA_FOLDER = os.path.join(os.path.expanduser('~'), '.carpetmanager')
+    os.makedirs(DATA_FOLDER, exist_ok=True)
+    print(f"✅ Используется папка пользователя: {DATA_FOLDER}")
+
+# Папка для шаблонов
 template_folder = os.path.join(base_path, 'templates')
-app = Flask(__name__, template_folder=template_folder)
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(BASE_DIR, "carpets.db")}'
+# Папка для статических файлов (если есть)
+static_folder = os.path.join(base_path, 'static')
+if not os.path.exists(static_folder):
+    os.makedirs(static_folder, exist_ok=True)
+
+app = Flask(__name__, template_folder=template_folder, static_folder=static_folder)
+
+# База данных
+DB_PATH = os.path.join(DATA_FOLDER, 'carpets.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{DB_PATH}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = 'your-secret-key-here'
+
 db = SQLAlchemy(app)
 
 # Папка для QR-кодов
-QR_FOLDER = 'qr_codes'
-if not os.path.exists(QR_FOLDER):
-    os.makedirs(QR_FOLDER)
+QR_FOLDER = os.path.join(DATA_FOLDER, 'qr_codes')
+os.makedirs(QR_FOLDER, exist_ok=True)
+
+print(f"📁 База данных: {DB_PATH}")
+print(f"📁 QR-коды: {QR_FOLDER}")
 
 # ========== МОДЕЛИ ДАННЫХ ==========
 
@@ -122,6 +158,7 @@ def find_free_port():
 with app.app_context():
     db.create_all()
     
+    # Добавляем тестовые типы ковров
     if CarpetType.query.count() == 0:
         default_types = [
             CarpetType(name="Персидский", base_price=15000, description="Классический персидский ковёр ручной работы"),
@@ -133,6 +170,7 @@ with app.app_context():
             db.session.add(t)
         db.session.commit()
     
+    # Добавляем тестовых швей
     if Craftsman.query.count() == 0:
         craftsmen = [
             Craftsman(name="Анна Иванова", phone="+7-999-123-45-67"),
@@ -144,6 +182,7 @@ with app.app_context():
             db.session.add(c)
         db.session.commit()
     
+    # Добавляем тестовые ковры
     if Carpet.query.count() == 0:
         test_data = [
             ("CARPET-0001", 1, 1, 15000, "scanned", "2025-05-28 14:30:00"),
@@ -163,6 +202,7 @@ with app.app_context():
             db.session.add(carpet)
         db.session.commit()
         
+        # Генерируем QR-коды для тестовых ковров
         for carpet in Carpet.query.all():
             carpet_type = CarpetType.query.get(carpet.carpet_type_id)
             craftsman = Craftsman.query.get(carpet.craftsman_id)
@@ -224,7 +264,6 @@ def add_carpet_group():
     material = request.form.get('material', '')
     color = request.form.get('color', '')
     
-    # Ограничиваем для безопасности
     if count > 2000:
         flash('⚠️ Максимальное количество - 2000 ковров за раз!', 'error')
         return redirect(url_for('index'))
@@ -737,6 +776,8 @@ def stats():
         scan_date_to=scan_date_to
     )
 
+# ========== ЗАПУСК ==========
+
 def open_browser(port):
     time.sleep(1.5)
     webbrowser.open(f'http://127.0.0.1:{port}')
@@ -745,6 +786,10 @@ if __name__ == '__main__':
     port = find_free_port()
     print("=" * 60)
     print("🧵 КОВРОВЫЙ УЧЁТ - Система управления")
+    print("=" * 60)
+    print(f"📁 Папка с данными: {DATA_FOLDER}")
+    print(f"🗄️ База данных: {DB_PATH}")
+    print(f"📁 QR-коды: {QR_FOLDER}")
     print("=" * 60)
     print("✅ QR-коды генерируются автоматически при создании ковра")
     print("✅ Сканирование отмечает ковёр с датой и временем")
