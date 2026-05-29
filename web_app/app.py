@@ -32,7 +32,7 @@ try:
         f.write('test')
     os.remove(test_file)
     DATA_FOLDER = local_data_folder
-    print(f"✅ Используется локальная папка: {DATA_FOLDER}")
+    print(f"[OK] Lokal ordner: {DATA_FOLDER}")
 except (PermissionError, OSError):
     # Если нет прав, используем папку пользователя
     if sys.platform == 'win32':
@@ -40,7 +40,7 @@ except (PermissionError, OSError):
     else:
         DATA_FOLDER = os.path.join(os.path.expanduser('~'), '.carpetmanager')
     os.makedirs(DATA_FOLDER, exist_ok=True)
-    print(f"✅ Используется папка пользователя: {DATA_FOLDER}")
+    print(f"[OK] Benutzerordner: {DATA_FOLDER}")
 
 # Папка для шаблонов
 template_folder = os.path.join(base_path, 'templates')
@@ -63,14 +63,13 @@ db = SQLAlchemy(app)
 QR_FOLDER = os.path.join(DATA_FOLDER, 'qr_codes')
 os.makedirs(QR_FOLDER, exist_ok=True)
 
-print(f"📁 База данных: {DB_PATH}")
-print(f"📁 QR-коды: {QR_FOLDER}")
+print(f"[DB] Datenbank: {DB_PATH}")
+print(f"[QR] QR-Codes: {QR_FOLDER}")
 
 # ========== ФУНКЦИЯ ПОИСКА СВОБОДНОГО ПОРТА ==========
 
 def find_free_port():
     """Находит свободный порт автоматически"""
-    # Список портов для проверки (в порядке приоритета)
     preferred_ports = [5000, 5001, 5002, 8080, 8081, 3000, 8000, 8888]
     
     for port in preferred_ports:
@@ -78,23 +77,21 @@ def find_free_port():
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.bind(('', port))
                 s.listen(1)
-                print(f"✅ Найден свободный порт: {port}")
+                print(f"[OK] Freier Port gefunden: {port}")
                 return port
         except OSError:
-            # Порт занят, пробуем следующий
             continue
     
-    # Если все предпочтительные порты заняты, ищем любой свободный
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.bind(('', 0))
             s.listen(1)
             port = s.getsockname()[1]
-            print(f"✅ Найден свободный порт (авто): {port}")
+            print(f"[OK] Freier Port gefunden (auto): {port}")
             return port
     except:
-        print("❌ Не удалось найти свободный порт!")
-        return 8080  # Возвращаем порт по умолчанию
+        print("[ERROR] Kein freier Port gefunden!")
+        return 8080
 
 # ========== МОДЕЛИ ДАННЫХ ==========
 
@@ -183,10 +180,10 @@ with app.app_context():
     # Добавляем тестовые типы ковров
     if CarpetType.query.count() == 0:
         default_types = [
-            CarpetType(name="Персидский", base_price=15000, description="Классический персидский ковёр ручной работы"),
-            CarpetType(name="Турецкий", base_price=12000, description="Турецкий ковёр из натуральной шерсти"),
-            CarpetType(name="Современный", base_price=8000, description="Современный дизайн, синтетические материалы"),
-            CarpetType(name="Винтажный", base_price=20000, description="Винтажный ковёр с эффектом состаренности")
+            CarpetType(name="Persisch", base_price=15000, description="Klassischer persischer Teppich"),
+            CarpetType(name="Turkisch", base_price=12000, description="Turkischer Teppich aus Wolle"),
+            CarpetType(name="Modern", base_price=8000, description="Moderner Teppich"),
+            CarpetType(name="Vintage", base_price=20000, description="Vintage Teppich")
         ]
         for t in default_types:
             db.session.add(t)
@@ -195,10 +192,10 @@ with app.app_context():
     # Добавляем тестовых швей
     if Craftsman.query.count() == 0:
         craftsmen = [
-            Craftsman(name="Анна Иванова", phone="+7-999-123-45-67"),
-            Craftsman(name="Мария Петрова", phone="+7-999-234-56-78"),
-            Craftsman(name="Елена Сидорова", phone="+7-999-345-67-89"),
-            Craftsman(name="Ольга Смирнова", phone="+7-999-456-78-90")
+            Craftsman(name="Anna Ivanova", phone="+7-999-123-45-67"),
+            Craftsman(name="Maria Petrova", phone="+7-999-234-56-78"),
+            Craftsman(name="Elena Sidorova", phone="+7-999-345-67-89"),
+            Craftsman(name="Olga Smirnova", phone="+7-999-456-78-90")
         ]
         for c in craftsmen:
             db.session.add(c)
@@ -273,7 +270,7 @@ def add_carpet():
     carpet.qr_code_path = generate_qr_code(carpet_id, carpet_data)
     db.session.commit()
     
-    flash(f'Ковёр {carpet_id} успешно добавлен!', 'success')
+    flash(f'Teppich {carpet_id} erfolgreich hinzugefugt!', 'success')
     return redirect(url_for('index'))
 
 @app.route('/add_carpet_group', methods=['POST'])
@@ -287,18 +284,18 @@ def add_carpet_group():
     color = request.form.get('color', '')
     
     if count > 2000:
-        flash('⚠️ Максимальное количество - 2000 ковров за раз!', 'error')
+        flash('[WARN] Maximale Anzahl: 2000 Teppiche auf einmal!', 'error')
         return redirect(url_for('index'))
     
     if count < 1:
-        flash('⚠️ Количество должно быть не менее 1!', 'error')
+        flash('[WARN] Anzahl muss mindestens 1 sein!', 'error')
         return redirect(url_for('index'))
     
     carpet_type = CarpetType.query.get(carpet_type_id)
     craftsman = Craftsman.query.get(craftsman_id)
     
     if not carpet_type or not craftsman:
-        flash('❌ Тип или швея не найдены!', 'error')
+        flash('[ERROR] Typ oder Arbeiter nicht gefunden!', 'error')
         return redirect(url_for('index'))
     
     created = []
@@ -316,7 +313,7 @@ def add_carpet_group():
                 material=material,
                 color=color,
                 status='created',
-                notes=f'Групповое добавление {i+1}/{count}'
+                notes=f'Gruppe {i+1}/{count}'
             )
             db.session.add(carpet)
             db.session.flush()
@@ -330,7 +327,7 @@ def add_carpet_group():
             created.append(carpet_id)
             
             if (i + 1) % 100 == 0:
-                print(f"📦 Прогресс: {i+1}/{count} ковров создано")
+                print(f"[PROGRESS] {i+1}/{count} Teppiche erstellt")
                 
         except Exception as e:
             errors.append(f"{carpet_id if 'carpet_id' in locals() else '?'}: {str(e)}")
@@ -338,9 +335,9 @@ def add_carpet_group():
     db.session.commit()
     
     if errors:
-        flash(f'⚠️ Создано {len(created)} из {count}. Ошибки: {", ".join(errors[:3])}', 'warning')
+        flash(f'[WARN] Erstellt {len(created)} von {count}. Fehler: {", ".join(errors[:3])}', 'warning')
     else:
-        flash(f'✅ Успешно создано {len(created)} ковров типа "{carpet_type.name}"', 'success')
+        flash(f'[OK] Erfolgreich erstellt {len(created)} Teppiche vom Typ "{carpet_type.name}"', 'success')
     
     return redirect(url_for('index'))
 
@@ -368,7 +365,7 @@ def edit_carpet(id):
         carpet.qr_code_path = generate_qr_code(carpet.carpet_id, carpet_data)
         db.session.commit()
         
-        flash(f'Ковёр {carpet.carpet_id} успешно обновлён!', 'success')
+        flash(f'Teppich {carpet.carpet_id} erfolgreich aktualisiert!', 'success')
         return redirect(url_for('index'))
     
     return render_template('edit_carpet.html', 
@@ -383,7 +380,7 @@ def delete_carpet(id):
         os.remove(carpet.qr_code_path)
     db.session.delete(carpet)
     db.session.commit()
-    flash(f'Ковёр {carpet.carpet_id} удалён', 'info')
+    flash(f'Teppich {carpet.carpet_id} geloscht', 'info')
     return redirect(url_for('index'))
 
 @app.route('/add_craftsman', methods=['POST'])
@@ -393,7 +390,7 @@ def add_craftsman():
         phone=request.form.get('phone', '')
     ))
     db.session.commit()
-    flash('Швея успешно добавлена!', 'success')
+    flash('Arbeiter erfolgreich hinzugefugt!', 'success')
     return redirect(url_for('index'))
 
 @app.route('/edit_craftsman/<int:id>', methods=['GET', 'POST'])
@@ -403,7 +400,7 @@ def edit_craftsman(id):
         craftsman.name = request.form['name']
         craftsman.phone = request.form['phone']
         db.session.commit()
-        flash('Данные швеи обновлены!', 'success')
+        flash('Arbeiterdaten aktualisiert!', 'success')
         return redirect(url_for('index'))
     return render_template('edit_craftsman.html', craftsman=craftsman)
 
@@ -420,9 +417,9 @@ def delete_craftsman(id):
     db.session.commit()
     
     if carpet_count > 0:
-        flash(f'Швея "{craftsman.name}" удалена вместе с {carpet_count} коврами', 'success')
+        flash(f'Arbeiter "{craftsman.name}" geloscht mit {carpet_count} Teppichen', 'success')
     else:
-        flash(f'Швея "{craftsman.name}" удалена', 'success')
+        flash(f'Arbeiter "{craftsman.name}" geloscht', 'success')
     
     return redirect(url_for('index'))
 
@@ -447,7 +444,7 @@ def craftsman_detail(id):
     
     type_stats = {}
     for carpet in carpets:
-        type_name = carpet.carpet_type_ref.name if carpet.carpet_type_ref else 'Неизвестно'
+        type_name = carpet.carpet_type_ref.name if carpet.carpet_type_ref else 'Unbekannt'
         type_stats[type_name] = type_stats.get(type_name, 0) + 1
     
     month_stats = {}
@@ -481,13 +478,13 @@ def add_type():
     
     existing = CarpetType.query.filter_by(name=name).first()
     if existing:
-        flash('Тип с таким названием уже существует!', 'error')
+        flash('Typ mit diesem Namen existiert bereits!', 'error')
         return redirect(url_for('types_list'))
     
     new_type = CarpetType(name=name, base_price=base_price, description=description)
     db.session.add(new_type)
     db.session.commit()
-    flash(f'Тип "{name}" успешно добавлен!', 'success')
+    flash(f'Typ "{name}" erfolgreich hinzugefugt!', 'success')
     return redirect(url_for('types_list'))
 
 @app.route('/edit_type/<int:id>', methods=['GET', 'POST'])
@@ -499,7 +496,7 @@ def edit_type(id):
         carpet_type.base_price = float(request.form['base_price'])
         carpet_type.description = request.form.get('description', '')
         db.session.commit()
-        flash(f'Тип "{carpet_type.name}" обновлён!', 'success')
+        flash(f'Typ "{carpet_type.name}" aktualisiert!', 'success')
         return redirect(url_for('types_list'))
     
     return render_template('edit_type.html', type=carpet_type)
@@ -508,11 +505,11 @@ def edit_type(id):
 def delete_type(id):
     carpet_type = CarpetType.query.get_or_404(id)
     if len(carpet_type.carpets) > 0:
-        flash('Нельзя удалить тип, у которого есть ковры!', 'error')
+        flash('Typ mit Teppichen kann nicht geloscht werden!', 'error')
         return redirect(url_for('types_list'))
     db.session.delete(carpet_type)
     db.session.commit()
-    flash('Тип удалён', 'info')
+    flash('Typ geloscht', 'info')
     return redirect(url_for('types_list'))
 
 @app.route('/scan_qr', methods=['POST'])
@@ -532,7 +529,7 @@ def scan_qr():
         log.result = 'not_found'
         db.session.add(log)
         db.session.commit()
-        return jsonify({'success': False, 'message': '❌ Ковёр не найден в базе данных!'})
+        return jsonify({'success': False, 'message': 'Teppich nicht in der Datenbank gefunden!'})
     
     if carpet.status == 'scanned':
         log.result = 'already_scanned'
@@ -543,7 +540,7 @@ def scan_qr():
             'already_scanned': True,
             'carpet_id': carpet.carpet_id,
             'scanned_at': carpet.scanned_at,
-            'message': f'⚠️ Этот ковёр уже был отсканирован {carpet.scanned_at}!'
+            'message': f'Dieser Teppich wurde bereits gescannt am {carpet.scanned_at}!'
         })
     
     carpet.status = 'scanned'
@@ -568,7 +565,7 @@ def scan_qr():
         'material': carpet.material or '-',
         'color': carpet.color or '-',
         'scanned_at': carpet.scanned_at,
-        'message': f'✅ Ковёр {carpet.carpet_id} успешно отсканирован!'
+        'message': f'Teppich {carpet.carpet_id} erfolgreich gescannt!'
     })
 
 @app.route('/mark_sold/<int:id>', methods=['POST'])
@@ -577,22 +574,22 @@ def mark_sold(id):
     if carpet.status == 'scanned':
         carpet.status = 'sold'
         db.session.commit()
-        return jsonify({'success': True, 'message': 'Ковёр отмечен как проданный'})
-    return jsonify({'success': False, 'message': 'Ковёр ещё не отсканирован'})
+        return jsonify({'success': True, 'message': 'Teppich als verkauft markiert'})
+    return jsonify({'success': False, 'message': 'Teppich noch nicht gescannt'})
 
 @app.route('/get_qr/<carpet_id>')
 def get_qr(carpet_id):
     carpet = Carpet.query.filter_by(carpet_id=carpet_id).first()
     if carpet and carpet.qr_code_path and os.path.exists(carpet.qr_code_path):
         return send_file(carpet.qr_code_path, mimetype='image/png')
-    return "QR не найден", 404
+    return "QR nicht gefunden", 404
 
 @app.route('/print_qr/<carpet_id>')
 def print_qr(carpet_id):
     carpet = Carpet.query.filter_by(carpet_id=carpet_id).first()
     if carpet:
         return render_template('print_qr.html', carpet=carpet, carpet_types=CarpetType.query.all())
-    return "Ковёр не найден", 404
+    return "Teppich nicht gefunden", 404
 
 @app.route('/mass_print_qr')
 def mass_print_qr():
@@ -683,7 +680,7 @@ def generate_qr_pdf():
         buffer.seek(0)
         return send_file(buffer, mimetype='application/pdf', as_attachment=True, download_name='qr_stickers.pdf')
     except ImportError:
-        return "Установите reportlab: pip install reportlab", 500
+        return "Installiere reportlab: pip install reportlab", 500
 
 @app.route('/search')
 def search():
@@ -805,30 +802,26 @@ def open_browser(port):
     webbrowser.open(f'http://127.0.0.1:{port}')
 
 if __name__ == '__main__':
-    # Находим свободный порт
     port = find_free_port()
     
     print("=" * 60)
-    print("🧵 КОВРОВЫЙ УЧЁТ - Система управления")
+    print("KOVROVYJ UCHET - Systemsteuerung")
     print("=" * 60)
-    print(f"📁 Папка с данными: {DATA_FOLDER}")
-    print(f"🗄️ База данных: {DB_PATH}")
-    print(f"📁 QR-коды: {QR_FOLDER}")
+    print(f"[OK] Datenordner: {DATA_FOLDER}")
+    print(f"[DB] Datenbank: {DB_PATH}")
+    print(f"[QR] QR-Codes: {QR_FOLDER}")
     print("=" * 60)
-    print("✅ QR-коды генерируются автоматически при создании ковра")
-    print("✅ Сканирование отмечает ковёр с датой и временем")
-    print("❌ Защита от повторного сканирования")
-    print("🏷️ Типы ковров можно создавать и редактировать")
-    print("🗑️ При удалении швеи удаляются все её ковры (каскадно)")
-    print("💰 Цена автоматически подставляется из типа ковра")
-    print("📦 Групповое добавление - до 2000 ковров за раз")
+    print("[OK] QR-Codes werden automatisch generiert")
+    print("[OK] Scannen speichert Datum und Zeit")
+    print("[WARN] Schutz vor erneutem Scannen")
+    print("[TYPE] Teppichtypen konnen erstellt/bearbeitet werden")
+    print("[DEL] Loscht Arbeiter -> loscht alle Teppiche (kaskadierend)")
+    print("[PRICE] Preis automatisch vom Teppichtyp")
+    print("[GROUP] Gruppenzugabe - bis zu 2000 Teppiche auf einmal")
     print("=" * 60)
-    print(f"🌐 Сервер запущен на порту: {port}")
-    print(f"📱 Открой в браузере: http://localhost:{port}")
+    print(f"[SERVER] Server gestartet auf Port: {port}")
+    print(f"[BROWSER] Offne im Browser: http://localhost:{port}")
     print("=" * 60)
     
-    # Запускаем браузер
     threading.Thread(target=open_browser, args=(port,), daemon=True).start()
-    
-    # Запускаем сервер
     app.run(host='0.0.0.0', port=port, debug=False)
