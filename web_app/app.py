@@ -9,6 +9,7 @@ import threading
 import time
 import io
 import zipfile
+import socket
 
 # ========== ОПРЕДЕЛЕНИЕ ПУТЕЙ ДЛЯ РАЗНЫХ ПЛАТФОРМ ==========
 if getattr(sys, 'frozen', False):
@@ -64,6 +65,36 @@ os.makedirs(QR_FOLDER, exist_ok=True)
 
 print(f"📁 База данных: {DB_PATH}")
 print(f"📁 QR-коды: {QR_FOLDER}")
+
+# ========== ФУНКЦИЯ ПОИСКА СВОБОДНОГО ПОРТА ==========
+
+def find_free_port():
+    """Находит свободный порт автоматически"""
+    # Список портов для проверки (в порядке приоритета)
+    preferred_ports = [5000, 5001, 5002, 8080, 8081, 3000, 8000, 8888]
+    
+    for port in preferred_ports:
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.bind(('', port))
+                s.listen(1)
+                print(f"✅ Найден свободный порт: {port}")
+                return port
+        except OSError:
+            # Порт занят, пробуем следующий
+            continue
+    
+    # Если все предпочтительные порты заняты, ищем любой свободный
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(('', 0))
+            s.listen(1)
+            port = s.getsockname()[1]
+            print(f"✅ Найден свободный порт (авто): {port}")
+            return port
+    except:
+        print("❌ Не удалось найти свободный порт!")
+        return 8080  # Возвращаем порт по умолчанию
 
 # ========== МОДЕЛИ ДАННЫХ ==========
 
@@ -143,15 +174,6 @@ def generate_next_id():
     else:
         next_num = 1
     return f"CARPET-{next_num:04d}"
-
-def find_free_port():
-    """Находит свободный порт"""
-    import socket
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(('', 0))
-        s.listen(1)
-        port = s.getsockname()[1]
-    return port
 
 # ========== СОЗДАНИЕ БД И ТЕСТОВЫХ ДАННЫХ ==========
 
@@ -779,11 +801,13 @@ def stats():
 # ========== ЗАПУСК ==========
 
 def open_browser(port):
-    time.sleep(1.5)
+    time.sleep(2)
     webbrowser.open(f'http://127.0.0.1:{port}')
 
 if __name__ == '__main__':
+    # Находим свободный порт
     port = find_free_port()
+    
     print("=" * 60)
     print("🧵 КОВРОВЫЙ УЧЁТ - Система управления")
     print("=" * 60)
@@ -802,5 +826,9 @@ if __name__ == '__main__':
     print(f"🌐 Сервер запущен на порту: {port}")
     print(f"📱 Открой в браузере: http://localhost:{port}")
     print("=" * 60)
+    
+    # Запускаем браузер
     threading.Thread(target=open_browser, args=(port,), daemon=True).start()
+    
+    # Запускаем сервер
     app.run(host='0.0.0.0', port=port, debug=False)
