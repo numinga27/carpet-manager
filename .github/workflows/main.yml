@@ -28,7 +28,7 @@ jobs:
     - name: Build with PyInstaller
       run: |
         cd web_app
-        pyinstaller --onefile --windowed --name="CarpetManager" --add-data "templates;templates" --add-data "static;static" app.py
+        pyinstaller --onefile --windowed --name="CarpetManager" --add-data "templates;templates" app.py
     
     - name: Upload artifact
       uses: actions/upload-artifact@v4
