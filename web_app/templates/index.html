@@ -180,7 +180,7 @@
         <button onclick="window.location.href='/search'">🔍 Расширенный поиск</button>
         <button onclick="window.location.href='/stats'">📊 Статистика</button>
         <button onclick="window.location.href='/mass_print_qr'">🖨️ Массовая печать</button>
-        <button onclick="toggleScanPanel()" id="scanToggleBtn">📷 Сканировать QR</button>
+        <button onclick="toggleScanPanel()" id="scanToggleBtn">✖️ Закрыть сканер</button>
     </div>
 
     <div class="content">
@@ -198,29 +198,25 @@
 
         <div class="info-note">
             💡 <strong>Как сканировать QR-код:</strong> Подключите USB-сканер, наведите на QR-код — 
-            данные появятся автоматически. Или введите ID ковра вручную и нажмите Enter.<br>
-            💰 <strong>Авто-цена:</strong> При выборе типа ковра цена подставляется автоматически.<br>
-            📦 <strong>Групповое добавление:</strong> Можно создать до 2000 ковров за раз.<br>
-            👥 <strong>Статистика швеи:</strong> Нажмите на строку с швеёй для детальной статистики.<br>
-            🖨️ <strong>Печать QR:</strong> PNG - изображение, PDF - готовый файл для печати.
+            данные появятся автоматически. Поле само очищается и фокусируется для следующего сканирования.<br>
+            ✅ <strong>Статус обновляется мгновенно</strong> — отсканированные ковры сразу становятся зелёными.
         </div>
 
-        <!-- Панель сканирования -->
-        <div id="scanPanel" class="scan-panel" style="display: none;">
+        <!-- Панель сканирования (всегда открыта) -->
+        <div id="scanPanel" class="scan-panel">
             <h3>📷 Сканирование QR-кода</h3>
-            <p>Наведите USB-сканер на QR-код или введите ID вручную:</p>
+            <p>Наведите USB-сканер на QR-код — поле автоматически очищается после каждого сканирования:</p>
             <div class="scan-input">
                 <input type="text" id="qrInput" placeholder="Например: CARPET-0001" autofocus>
                 <button class="btn btn-scan" onclick="scanQR()">🔍 Проверить</button>
-                <button class="btn btn-close" onclick="closeScanPanel()">✖️ Закрыть</button>
             </div>
             <div id="scanResult" class="scan-result"></div>
         </div>
 
-        <!-- Таблица ковров -->
+        <!-- Таблица ковров с ID -->
         <h2>📋 Список ковров</h2>
         <div class="table-wrapper">
-            <table>
+            <table id="carpetsTable">
                 <thead>
                     <tr>
                         <th>ID ковра</th>
@@ -236,15 +232,29 @@
                 </thead>
                 <tbody>
                     {% for carpet in carpets %}
-                    <tr>
+                    <tr data-carpet-id="{{ carpet.carpet_id }}">
                         <td><strong>{{ carpet.carpet_id }}</strong></td>
                         <td>{% if carpet.qr_code_path %}<img src="/get_qr/{{ carpet.carpet_id }}" class="qr-preview" onclick="window.open('/get_qr/{{ carpet.carpet_id }}')" title="Нажмите для просмотра QR-кода">{% else %}<span style="color:#999;">Нет QR</span>{% endif %}</td>
                         <td>{{ carpet.carpet_type_ref.name if carpet.carpet_type_ref else '-' }}</td>
                         <td>{{ carpet.craftsman_ref.name if carpet.craftsman_ref else '-' }}</td>
                         <td><strong>{{ carpet.price }} ₽</strong></td>
                         <td>{{ carpet.size or '-' }}</td>
-                        <td>{% if carpet.scanned_at %}<span style="font-size:12px;">🕐 {{ carpet.scanned_at }}</span>{% else %}<span style="color:#999; font-size:12px;">— не сканирован —</span>{% endif %}</td>
-                        <td>{% if carpet.status == 'created' %}<span class="status-badge status-created">📦 Создан</span>{% elif carpet.status == 'scanned' %}<span class="status-badge status-scanned">✅ Отсканирован</span>{% else %}<span class="status-badge status-sold">💰 Продан</span>{% endif %}</td>
+                        <td class="scan-date-cell">
+                            {% if carpet.scanned_at %}
+                                <span style="font-size:12px;">🕐 {{ carpet.scanned_at }}</span>
+                            {% else %}
+                                <span style="color: #999; font-size:12px;">— не сканирован —</span>
+                            {% endif %}
+                        </td>
+                        <td class="status-cell">
+                            {% if carpet.status == 'created' %}
+                                <span class="status-badge status-created">📦 Создан</span>
+                            {% elif carpet.status == 'scanned' %}
+                                <span class="status-badge status-scanned">✅ Отсканирован</span>
+                            {% else %}
+                                <span class="status-badge status-sold">💰 Продан</span>
+                            {% endif %}
+                        </td>
                         <td class="action-buttons">
                             <a href="/edit_carpet/{{ carpet.id }}"><button class="btn btn-edit">✏️ Ред.</button></a>
                             <button class="btn btn-print" onclick="printQR('{{ carpet.carpet_id }}')">🖨️ PNG</button>
@@ -257,7 +267,7 @@
             </table>
         </div>
 
-        <!-- Таблица швей (улучшенная) -->
+        <!-- Таблица швей -->
         <h2>👥 Список швей</h2>
         <div class="table-wrapper">
             <table style="min-width: 700px;">
@@ -299,7 +309,7 @@
     </div>
 </div>
 
-<!-- Модальное окно добавления ковра -->
+<!-- Модальные окна -->
 <div id="carpetModal" class="modal"><div class="modal-content">
     <h2>➕ Добавить ковёр</h2>
     <form action="/add_carpet" method="POST">
@@ -314,7 +324,6 @@
     </form>
 </div></div>
 
-<!-- Модальное окно группового добавления -->
 <div id="groupModal" class="modal"><div class="modal-content">
     <h2>📦 Групповое добавление ковров</h2>
     <form action="/add_carpet_group" method="POST" id="groupForm">
@@ -333,7 +342,6 @@
     </form>
 </div></div>
 
-<!-- Модальное окно добавления швеи -->
 <div id="craftsmanModal" class="modal"><div class="modal-content">
     <h2>👤 Добавить швею</h2>
     <form action="/add_craftsman" method="POST">
@@ -368,64 +376,128 @@
         if (type === 'carpet') setTimeout(updatePrice, 10);
     }
     function closeModal(type) { document.getElementById(type + 'Modal').style.display = 'none'; }
+    
     function toggleScanPanel() {
         const panel = document.getElementById('scanPanel');
         const btn = document.getElementById('scanToggleBtn');
         if (panel.style.display === 'none') {
             panel.style.display = 'block';
             btn.textContent = '✖️ Закрыть сканер';
+            btn.style.background = '#e74c3c';
             document.getElementById('qrInput').focus();
         } else {
             panel.style.display = 'none';
             btn.textContent = '📷 Сканировать QR';
+            btn.style.background = '#667eea';
         }
     }
-    function closeScanPanel() {
-        document.getElementById('scanPanel').style.display = 'none';
-        document.getElementById('scanToggleBtn').textContent = '📷 Сканировать QR';
-        document.getElementById('scanResult').innerHTML = '';
-    }
+    
+    // Основная функция сканирования с обновлением статуса
     async function scanQR() {
         const qrInput = document.getElementById('qrInput');
         const qrCode = qrInput.value.trim();
-        if (!qrCode) { alert('Введите ID ковра (например: CARPET-0001)'); return; }
+        
+        if (!qrCode) {
+            qrInput.focus();
+            return;
+        }
+
         const resultDiv = document.getElementById('scanResult');
-        resultDiv.innerHTML = '<div style="background: rgba(255,255,255,0.2); padding: 10px;">⏳ Поиск ковра...</div>';
+        resultDiv.innerHTML = '<div style="background: rgba(255,255,255,0.2); padding: 10px;">⏳ Поиск...</div>';
+
         try {
             const response = await fetch('/scan_qr', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ qr_code: qrCode })
             });
             const result = await response.json();
+
             if (result.success) {
-                resultDiv.innerHTML = `<div style="background: #27ae60; padding: 12px;"><strong>✅ Ковёр найден!</strong><br>📱 ID: ${result.carpet_id}<br>🏷️ Тип: ${result.carpet_type}<br>👤 Швея: ${result.craftsman}<br>💰 Цена: ${result.price} ₽<br>📏 Размер: ${result.size}<br>🕐 Отсканирован: ${result.scanned_at}<br>📊 Статус: ✅ Готов к продаже</div>`;
-                qrInput.value = '';
-                setTimeout(() => location.reload(), 2000);
+                resultDiv.innerHTML = `
+                    <div style="background: #27ae60; padding: 12px; border-radius: 8px;">
+                        ✅ Ковёр найден!<br>
+                        ID: ${result.carpet_id}<br>
+                        Тип: ${result.carpet_type}<br>
+                        Швея: ${result.craftsman}<br>
+                        Цена: ${result.price} ₽<br>
+                        🕐 Отсканирован: ${result.scanned_at}
+                    </div>
+                `;
+                // Обновляем статус в таблице
+                updateCarpetStatusInTable(result.carpet_id, result.scanned_at);
             } else if (result.already_scanned) {
-                resultDiv.innerHTML = `<div style="background: #f39c12; padding: 12px;">⚠️ ${result.message}<br>📅 Был отсканирован: ${result.scanned_at}</div>`;
+                resultDiv.innerHTML = `
+                    <div style="background: #f39c12; padding: 12px; border-radius: 8px;">
+                        ⚠️ Уже отсканирован: ${result.scanned_at}
+                    </div>
+                `;
             } else {
-                resultDiv.innerHTML = `<div style="background: #e74c3c; padding: 12px;">❌ ${result.message}<br>💡 Совет: проверьте правильность ID ковра</div>`;
+                resultDiv.innerHTML = `
+                    <div style="background: #e74c3c; padding: 12px; border-radius: 8px;">
+                        ❌ ${result.message}
+                    </div>
+                `;
             }
+            
+            // Очищаем поле и фокусируем для следующего сканирования
+            qrInput.value = '';
+            qrInput.focus();
+            
         } catch (error) {
-            resultDiv.innerHTML = '<div style="background: #e74c3c; padding: 12px;">❌ Ошибка соединения с сервером</div>';
+            resultDiv.innerHTML = '<div style="background: #e74c3c; padding: 12px;">❌ Ошибка</div>';
+            qrInput.focus();
         }
     }
-    function deleteCarpet(id) { if (confirm('🗑️ Удалить ковёр?\n\nЭто действие нельзя отменить.')) window.location.href = '/delete_carpet/' + id; }
-    function deleteCraftsman(id) { if (confirm('🗑️ Удалить швею?\n\nВсе ковры этой швеи также будут удалены!')) window.location.href = '/delete_craftsman/' + id; }
+    
+    // Функция обновления статуса ковра в таблице
+    function updateCarpetStatusInTable(carpetId, scannedAt) {
+        const rows = document.querySelectorAll('#carpetsTable tbody tr');
+        for (let row of rows) {
+            const idCell = row.cells[0];
+            if (idCell && idCell.innerText.trim() === carpetId) {
+                // Обновляем дату сканирования
+                const scanDateCell = row.cells[6];
+                if (scanDateCell) {
+                    scanDateCell.innerHTML = `<span style="font-size:12px;">🕐 ${scannedAt}</span>`;
+                }
+                // Обновляем статус
+                const statusCell = row.cells[7];
+                if (statusCell) {
+                    statusCell.innerHTML = '<span class="status-badge status-scanned">✅ Отсканирован</span>';
+                }
+                break;
+            }
+        }
+    }
+    
+    function deleteCarpet(id) { if (confirm('Удалить ковёр?')) window.location.href = '/delete_carpet/' + id; }
+    function deleteCraftsman(id) { if (confirm('Удалить швею? Все ковры будут удалены!')) window.location.href = '/delete_craftsman/' + id; }
     function printQR(carpetId) { window.open('/print_qr/' + carpetId, '_blank', 'width=450,height=600'); }
     function printSinglePDF(carpetId) { window.open('/print_single_pdf/' + carpetId, '_blank'); }
     
     document.getElementById('groupSubmitBtn')?.addEventListener('click', function(e) {
         const count = parseInt(document.querySelector('input[name="count"]').value);
-        if (count > 500) {
-            if (!confirm(`⚠️ Вы собираетесь создать ${count} ковров. Это может занять несколько минут. Продолжить?`)) e.preventDefault();
-            else { this.innerHTML = '⏳ Создание... пожалуйста, подождите'; this.disabled = true; }
+        if (count > 500 && !confirm(`Создать ${count} ковров? Это может занять время.`)) {
+            e.preventDefault();
+        } else if (count > 500) {
+            this.innerHTML = '⏳ Создание... подождите';
+            this.disabled = true;
         }
     });
+    
     document.addEventListener('DOMContentLoaded', function() {
         const input = document.getElementById('qrInput');
-        if (input) input.addEventListener('keypress', function(e) { if (e.key === 'Enter') scanQR(); });
+        if (input) {
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    scanQR();
+                }
+            });
+            input.focus();
+        }
     });
+    
     window.onclick = function(event) { if (event.target.classList.contains('modal')) event.target.style.display = 'none'; }
 </script>
 </body>
