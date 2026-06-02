@@ -180,6 +180,7 @@
         <button onclick="window.location.href='/search'">🔍 Расширенный поиск</button>
         <button onclick="window.location.href='/stats'">📊 Статистика</button>
         <button onclick="window.location.href='/mass_print_qr'">🖨️ Массовая печать</button>
+        <button onclick="window.location.href='/forecast'">📈 Прогноз продаж</button>
         <button onclick="toggleScanPanel()" id="scanToggleBtn">✖️ Закрыть сканер</button>
     </div>
 
@@ -199,10 +200,12 @@
         <div class="info-note">
             💡 <strong>Как сканировать QR-код:</strong> Подключите USB-сканер, наведите на QR-код — 
             данные появятся автоматически. Поле само очищается и фокусируется для следующего сканирования.<br>
-            ✅ <strong>Статус обновляется мгновенно</strong> — отсканированные ковры сразу становятся зелёными.
+            ✅ <strong>Статус обновляется мгновенно</strong> — отсканированные ковры сразу становятся зелёными.<br>
+            📈 <strong>Прогноз продаж</strong> — аналитика на основе исторических данных.<br>
+            🖨️ <strong>Печать наклеек:</strong> Каждый QR печатается на наклейку 60×40 мм с информацией о типе и швее.
         </div>
 
-        <!-- Панель сканирования (всегда открыта) -->
+        <!-- Панель сканирования -->
         <div id="scanPanel" class="scan-panel">
             <h3>📷 Сканирование QR-кода</h3>
             <p>Наведите USB-сканер на QR-код — поле автоматически очищается после каждого сканирования:</p>
@@ -213,7 +216,7 @@
             <div id="scanResult" class="scan-result"></div>
         </div>
 
-        <!-- Таблица ковров с ID -->
+        <!-- Таблица ковров -->
         <h2>📋 Список ковров</h2>
         <div class="table-wrapper">
             <table id="carpetsTable">
@@ -234,7 +237,15 @@
                     {% for carpet in carpets %}
                     <tr data-carpet-id="{{ carpet.carpet_id }}">
                         <td><strong>{{ carpet.carpet_id }}</strong></td>
-                        <td>{% if carpet.qr_code_path %}<img src="/get_qr/{{ carpet.carpet_id }}" class="qr-preview" onclick="window.open('/get_qr/{{ carpet.carpet_id }}')" title="Нажмите для просмотра QR-кода">{% else %}<span style="color:#999;">Нет QR</span>{% endif %}</td>
+                        <td>
+                            {% if carpet.qr_code_path %}
+                            <img src="/get_qr/{{ carpet.carpet_id }}" class="qr-preview" 
+                                 onclick="window.open('/get_qr/{{ carpet.carpet_id }}')" 
+                                 title="Нажмите для просмотра QR-кода">
+                            {% else %}
+                                <span style="color: #999;">Нет QR</span>
+                            {% endif %}
+                        </td>
                         <td>{{ carpet.carpet_type_ref.name if carpet.carpet_type_ref else '-' }}</td>
                         <td>{{ carpet.craftsman_ref.name if carpet.craftsman_ref else '-' }}</td>
                         <td><strong>{{ carpet.price }} ₽</strong></td>
@@ -309,7 +320,7 @@
     </div>
 </div>
 
-<!-- Модальные окна -->
+<!-- Модальное окно добавления ковра -->
 <div id="carpetModal" class="modal"><div class="modal-content">
     <h2>➕ Добавить ковёр</h2>
     <form action="/add_carpet" method="POST">
@@ -324,6 +335,7 @@
     </form>
 </div></div>
 
+<!-- Модальное окно группового добавления -->
 <div id="groupModal" class="modal"><div class="modal-content">
     <h2>📦 Групповое добавление ковров</h2>
     <form action="/add_carpet_group" method="POST" id="groupForm">
@@ -342,6 +354,7 @@
     </form>
 </div></div>
 
+<!-- Модальное окно добавления швеи -->
 <div id="craftsmanModal" class="modal"><div class="modal-content">
     <h2>👤 Добавить швею</h2>
     <form action="/add_craftsman" method="POST">
@@ -392,7 +405,6 @@
         }
     }
     
-    // Основная функция сканирования с обновлением статуса
     async function scanQR() {
         const qrInput = document.getElementById('qrInput');
         const qrCode = qrInput.value.trim();
@@ -417,14 +429,14 @@
                 resultDiv.innerHTML = `
                     <div style="background: #27ae60; padding: 12px; border-radius: 8px;">
                         ✅ Ковёр найден!<br>
-                        ID: ${result.carpet_id}<br>
-                        Тип: ${result.carpet_type}<br>
-                        Швея: ${result.craftsman}<br>
-                        Цена: ${result.price} ₽<br>
+                        📱 ID: ${result.carpet_id}<br>
+                        🏷️ Тип: ${result.carpet_type}<br>
+                        👤 Швея: ${result.craftsman}<br>
+                        💰 Цена: ${result.price} ₽<br>
+                        📏 Размер: ${result.size}<br>
                         🕐 Отсканирован: ${result.scanned_at}
                     </div>
                 `;
-                // Обновляем статус в таблице
                 updateCarpetStatusInTable(result.carpet_id, result.scanned_at);
             } else if (result.already_scanned) {
                 resultDiv.innerHTML = `
@@ -440,28 +452,24 @@
                 `;
             }
             
-            // Очищаем поле и фокусируем для следующего сканирования
             qrInput.value = '';
             qrInput.focus();
             
         } catch (error) {
-            resultDiv.innerHTML = '<div style="background: #e74c3c; padding: 12px;">❌ Ошибка</div>';
+            resultDiv.innerHTML = '<div style="background: #e74c3c; padding: 12px;">❌ Ошибка соединения</div>';
             qrInput.focus();
         }
     }
     
-    // Функция обновления статуса ковра в таблице
     function updateCarpetStatusInTable(carpetId, scannedAt) {
         const rows = document.querySelectorAll('#carpetsTable tbody tr');
         for (let row of rows) {
             const idCell = row.cells[0];
             if (idCell && idCell.innerText.trim() === carpetId) {
-                // Обновляем дату сканирования
                 const scanDateCell = row.cells[6];
                 if (scanDateCell) {
                     scanDateCell.innerHTML = `<span style="font-size:12px;">🕐 ${scannedAt}</span>`;
                 }
-                // Обновляем статус
                 const statusCell = row.cells[7];
                 if (statusCell) {
                     statusCell.innerHTML = '<span class="status-badge status-scanned">✅ Отсканирован</span>';

@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, jsonify, send_file, flash
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import sys
 import qrcode
@@ -10,6 +10,8 @@ import time
 import io
 import zipfile
 import socket
+import numpy as np
+from collections import defaultdict
 
 # ========== ОПРЕДЕЛЕНИЕ ПУТЕЙ ДЛЯ РАЗНЫХ ПЛАТФОРМ ==========
 if getattr(sys, 'frozen', False):
@@ -114,6 +116,91 @@ class ScanLog(db.Model):
     scanned_by = db.Column(db.String(50), default='admin')
     result = db.Column(db.String(20))
 
+# ========== ФУНКЦИИ ПРОГНОЗИРОВАНИЯ ==========
+def forecast_sales(days=30):
+    scans = ScanLog.query.filter_by(result='success').all()
+    
+    if len(scans) < 7:
+        return {"error": "Недостаточно данных для прогноза (нужно минимум 7 дней)", "data": []}
+    
+    daily_counts = defaultdict(int)
+    for scan in scans:
+        date = scan.scanned_at[:10]
+        daily_counts[date] += 1
+    
+    dates = sorted(daily_counts.keys())
+    counts = [daily_counts[d] for d in dates]
+    
+    if len(counts) < 14:
+        avg = sum(counts) / len(counts)
+        forecast = [max(0, round(avg)) for _ in range(days)]
+        method = "Среднее арифметическое"
+    else:
+        alpha = 0.3
+        smoothed = [counts[0]]
+        for i in range(1, len(counts)):
+            smoothed.append(alpha * counts[i] + (1 - alpha) * smoothed[-1])
+        
+        last_smoothed = smoothed[-1]
+        np.random.seed(42)
+        variations = np.random.normal(0, last_smoothed * 0.15, days)
+        forecast = [max(0, round(last_smoothed + v)) for v in variations]
+        method = "Экспоненциальное сглаживание"
+    
+    weekday_weights = {0: 1.0, 1: 1.0, 2: 1.0, 3: 1.0, 4: 1.2, 5: 1.5, 6: 1.1}
+    today = datetime.now()
+    
+    forecast_with_season = []
+    forecast_dates = []
+    for i in range(days):
+        forecast_date = today + timedelta(days=i+1)
+        weight = weekday_weights.get(forecast_date.weekday(), 1.0)
+        value = round(forecast[i] * weight)
+        forecast_with_season.append(value)
+        forecast_dates.append(forecast_date.strftime("%Y-%m-%d"))
+    
+    return {
+        "method": method,
+        "data": forecast_with_season,
+        "dates": forecast_dates,
+        "total": sum(forecast_with_season),
+        "daily_avg": round(sum(forecast_with_season) / days, 1),
+        "historical_data": counts[-30:],
+        "historical_dates": dates[-30:]
+    }
+
+def calculate_trend():
+    scans = ScanLog.query.filter_by(result='success').all()
+    
+    if len(scans) < 14:
+        return {"trend": "unknown", "percent": 0}
+    
+    now = datetime.now()
+    last_week = 0
+    prev_week = 0
+    
+    for scan in scans:
+        scan_date = datetime.strptime(scan.scanned_at[:10], "%Y-%m-%d")
+        days_diff = (now - scan_date).days
+        if days_diff <= 7:
+            last_week += 1
+        elif days_diff <= 14:
+            prev_week += 1
+    
+    if prev_week == 0:
+        percent = 100 if last_week > 0 else 0
+    else:
+        percent = round((last_week - prev_week) / prev_week * 100, 1)
+    
+    if percent > 10:
+        trend = "growing"
+    elif percent < -10:
+        trend = "declining"
+    else:
+        trend = "stable"
+    
+    return {"trend": trend, "percent": percent, "last_week": last_week, "prev_week": prev_week}
+
 # ========== ФУНКЦИИ ==========
 def generate_qr_code(carpet_id, carpet_data):
     qr = qrcode.QRCode(version=1, box_size=10, border=4, error_correction=qrcode.constants.ERROR_CORRECT_M)
@@ -171,14 +258,8 @@ with app.app_context():
             ("CARPET-0004", 1, 3, 49, "created", None)
         ]
         for qr, type_id, cm_id, price, status, scanned_at in test_data:
-            carpet = Carpet(
-                carpet_id=qr, 
-                carpet_type_id=type_id, 
-                craftsman_id=cm_id, 
-                price=price, 
-                status=status,
-                scanned_at=scanned_at
-            )
+            carpet = Carpet(carpet_id=qr, carpet_type_id=type_id, craftsman_id=cm_id, 
+                          price=price, status=status, scanned_at=scanned_at)
             db.session.add(carpet)
         db.session.commit()
         
@@ -196,6 +277,12 @@ def index():
                          carpets=Carpet.query.all(),
                          craftsmen=Craftsman.query.all(),
                          carpet_types=CarpetType.query.all())
+
+@app.route('/forecast')
+def forecast_page():
+    forecast = forecast_sales(30)
+    trend = calculate_trend()
+    return render_template('forecast.html', forecast=forecast, trend=trend)
 
 @app.route('/add_carpet', methods=['POST'])
 def add_carpet():
@@ -469,34 +556,49 @@ def print_single_pdf(carpet_id):
         from reportlab.lib.pagesizes import A4
         from reportlab.pdfgen import canvas
         from reportlab.lib.utils import ImageReader
+        from reportlab.lib.units import mm
         
         buffer = io.BytesIO()
         c = canvas.Canvas(buffer, pagesize=A4)
         width, height = A4
         
-        qr_size = 150
-        qr_size_pts = qr_size * 2.83465
-        x_center = (width - qr_size_pts) / 2
-        y_center = (height - qr_size_pts) / 2
+        # Размер наклейки 60x40 мм
+        sticker_width = 60 * mm
+        sticker_height = 40 * mm
+        
+        x_center = (width - sticker_width) / 2
+        y_center = (height - sticker_height) / 2
+        
+        c.rect(x_center, y_center, sticker_width, sticker_height)
+        
+        # QR-код
+        qr_size = 25 * mm
+        qr_x = x_center + 5 * mm
+        qr_y = y_center + 5 * mm
         
         if carpet.qr_code_path and os.path.exists(carpet.qr_code_path):
             img = ImageReader(carpet.qr_code_path)
-            c.drawImage(img, x_center, y_center, qr_size_pts, qr_size_pts)
+            c.drawImage(img, qr_x, qr_y, qr_size, qr_size)
         
-        c.setFont("Helvetica-Bold", 14)
-        c.drawCentredString(width / 2, y_center - 30, carpet.carpet_id)
-        c.setFont("Helvetica", 11)
+        # Информация
+        text_x = qr_x + qr_size + 3 * mm
+        text_y = y_center + sticker_height - 8 * mm
         
         carpet_type = CarpetType.query.get(carpet.carpet_type_id)
         type_name = carpet_type.name if carpet_type else '-'
+        craftsman = Craftsman.query.get(carpet.craftsman_id)
+        craftsman_name = craftsman.name if craftsman else '-'
         
-        c.drawCentredString(width / 2, y_center - 55, f"Тип: {type_name}")
-        c.drawCentredString(width / 2, y_center - 75, f"Цена: {carpet.price} ₽")
-        c.rect(x_center - 5, y_center - 5, qr_size_pts + 10, qr_size_pts + 100)
+        c.setFont("Helvetica-Bold", 8)
+        c.drawString(text_x, text_y, f"ID: {carpet.carpet_id}")
+        c.setFont("Helvetica", 7)
+        c.drawString(text_x, text_y - 4 * mm, f"Тип: {type_name}")
+        c.drawString(text_x, text_y - 8 * mm, f"Швея: {craftsman_name}")
+        c.drawString(text_x, text_y - 12 * mm, f"Цена: {carpet.price} ₽")
         
         c.save()
         buffer.seek(0)
-        return send_file(buffer, mimetype='application/pdf', as_attachment=True, download_name=f'{carpet.carpet_id}.pdf')
+        return send_file(buffer, mimetype='application/pdf', as_attachment=True, download_name=f'{carpet.carpet_id}_sticker.pdf')
     except ImportError:
         return "Установите reportlab: pip install reportlab", 500
 
@@ -564,34 +666,58 @@ def generate_qr_pdf():
         from reportlab.lib.pagesizes import A4
         from reportlab.pdfgen import canvas
         from reportlab.lib.utils import ImageReader
+        from reportlab.lib.units import mm
         
         buffer = io.BytesIO()
         c = canvas.Canvas(buffer, pagesize=A4)
         width, height = A4
         
-        x_pos = 20
-        y_pos = height - 50
-        count = 0
+        # Размер наклейки 60x40 мм, 3x5 на листе
+        sticker_width = 60 * mm
+        sticker_height = 40 * mm
+        cols = 3
+        rows = 5
         
-        for carpet in query.all():
-            if carpet.qr_code_path and os.path.exists(carpet.qr_code_path):
-                c.rect(x_pos, y_pos - 100, 180, 100)
-                img = ImageReader(carpet.qr_code_path)
-                c.drawImage(img, x_pos + 10, y_pos - 85, 50, 50)
-                c.setFont("Helvetica", 8)
-                c.drawString(x_pos + 70, y_pos - 15, carpet.carpet_id)
-                c.drawString(x_pos + 70, y_pos - 28, carpet.carpet_type_ref.name if carpet.carpet_type_ref else '-')
-                c.drawString(x_pos + 70, y_pos - 41, f"{carpet.price} ₽")
-                
-                x_pos += 200
-                count += 1
-                if count % 3 == 0:
-                    x_pos = 20
-                    y_pos -= 120
-                if count % 12 == 0:
-                    c.showPage()
-                    x_pos = 20
-                    y_pos = height - 50
+        margin_left = (width - sticker_width * cols) / 2
+        margin_top = (height - sticker_height * rows) / 2
+        
+        for i, carpet in enumerate(carpets):
+            if not carpet.qr_code_path or not os.path.exists(carpet.qr_code_path):
+                continue
+            
+            col = i % cols
+            row = (i // cols) % rows
+            page = i // (cols * rows)
+            
+            if page > 0 and i % (cols * rows) == 0:
+                c.showPage()
+            
+            x = margin_left + col * sticker_width
+            y = margin_top + (rows - 1 - row) * sticker_height
+            
+            c.rect(x, y, sticker_width, sticker_height)
+            
+            qr_size = 25 * mm
+            qr_x = x + 5 * mm
+            qr_y = y + 5 * mm
+            
+            img = ImageReader(carpet.qr_code_path)
+            c.drawImage(img, qr_x, qr_y, qr_size, qr_size)
+            
+            text_x = qr_x + qr_size + 3 * mm
+            text_y = y + sticker_height - 8 * mm
+            
+            carpet_type = CarpetType.query.get(carpet.carpet_type_id)
+            type_name = carpet_type.name if carpet_type else '-'
+            craftsman = Craftsman.query.get(carpet.craftsman_id)
+            craftsman_name = craftsman.name if craftsman else '-'
+            
+            c.setFont("Helvetica-Bold", 7)
+            c.drawString(text_x, text_y, f"ID: {carpet.carpet_id}")
+            c.setFont("Helvetica", 7)
+            c.drawString(text_x, text_y - 4 * mm, f"Тип: {type_name}")
+            c.drawString(text_x, text_y - 8 * mm, f"Швея: {craftsman_name}")
+            c.drawString(text_x, text_y - 12 * mm, f"Цена: {carpet.price} ₽")
         
         c.save()
         buffer.seek(0)
@@ -601,7 +727,6 @@ def generate_qr_pdf():
 
 @app.route('/generate_single_pages_pdf')
 def generate_single_pages_pdf():
-    """Генерирует PDF, где каждый QR-код на отдельной странице"""
     carpet_type_id = request.args.get('carpet_type_id', '')
     craftsman_id = request.args.get('craftsman_id', '')
     status = request.args.get('status', '')
@@ -624,72 +749,57 @@ def generate_single_pages_pdf():
         from reportlab.lib.pagesizes import A4
         from reportlab.pdfgen import canvas
         from reportlab.lib.utils import ImageReader
+        from reportlab.lib.units import mm
         
         buffer = io.BytesIO()
-        
-        # Создаём PDF документ
         c = canvas.Canvas(buffer, pagesize=A4)
         width, height = A4
         
+        sticker_width = 60 * mm
+        sticker_height = 40 * mm
+        
         for i, carpet in enumerate(carpets):
             if not carpet.qr_code_path or not os.path.exists(carpet.qr_code_path):
-                print(f"QR не найден: {carpet.qr_code_path}")
                 continue
             
-            # Центрируем QR-код на странице
-            qr_size = 180
-            qr_size_pts = qr_size * 2.83465
+            x_center = (width - sticker_width) / 2
+            y_center = (height - sticker_height) / 2
             
-            x_center = (width - qr_size_pts) / 2
-            y_center = (height - qr_size_pts) / 2
+            c.rect(x_center, y_center, sticker_width, sticker_height)
             
-            # Вставляем QR-код
+            qr_size = 25 * mm
+            qr_x = x_center + 5 * mm
+            qr_y = y_center + 5 * mm
+            
             img = ImageReader(carpet.qr_code_path)
-            c.drawImage(img, x_center, y_center, qr_size_pts, qr_size_pts)
+            c.drawImage(img, qr_x, qr_y, qr_size, qr_size)
             
-            # Рамка
-            c.rect(x_center - 5, y_center - 5, qr_size_pts + 10, qr_size_pts + 100)
-            
-            # Информация под QR
-            c.setFont("Helvetica-Bold", 14)
-            c.drawCentredString(width / 2, y_center - 35, carpet.carpet_id)
-            c.setFont("Helvetica", 11)
+            text_x = qr_x + qr_size + 3 * mm
+            text_y = y_center + sticker_height - 8 * mm
             
             carpet_type = CarpetType.query.get(carpet.carpet_type_id)
             type_name = carpet_type.name if carpet_type else '-'
             craftsman = Craftsman.query.get(carpet.craftsman_id)
             craftsman_name = craftsman.name if craftsman else '-'
             
-            c.drawCentredString(width / 2, y_center - 60, f"Тип: {type_name}")
-            c.drawCentredString(width / 2, y_center - 80, f"Швея: {craftsman_name}")
-            c.drawCentredString(width / 2, y_center - 100, f"Цена: {carpet.price} ₽")
+            c.setFont("Helvetica-Bold", 8)
+            c.drawString(text_x, text_y, f"ID: {carpet.carpet_id}")
+            c.setFont("Helvetica", 7)
+            c.drawString(text_x, text_y - 4 * mm, f"Тип: {type_name}")
+            c.drawString(text_x, text_y - 8 * mm, f"Швея: {craftsman_name}")
+            c.drawString(text_x, text_y - 12 * mm, f"Цена: {carpet.price} ₽")
             
-            if carpet.scanned_at:
-                c.setFont("Helvetica", 9)
-                c.drawCentredString(width / 2, y_center - 125, f"Отсканирован: {carpet.scanned_at}")
-            
-            # Номер страницы
-            c.setFont("Helvetica", 8)
+            c.setFont("Helvetica", 7)
             c.drawCentredString(width / 2, 30, f"Лист {i+1} из {len(carpets)}")
             
-            # Переход на следующую страницу (кроме последней)
             if i < len(carpets) - 1:
                 c.showPage()
         
         c.save()
         buffer.seek(0)
-        
-        return send_file(
-            buffer, 
-            mimetype='application/pdf', 
-            as_attachment=True, 
-            download_name='qr_single_pages.pdf'
-        )
+        return send_file(buffer, mimetype='application/pdf', as_attachment=True, download_name='qr_single_pages.pdf')
     except ImportError:
         return "Установите reportlab: pip install reportlab", 500
-    except Exception as e:
-        print(f"Ошибка при создании PDF: {e}")
-        return f"Ошибка при создании PDF: {str(e)}", 500
 
 @app.route('/search')
 def search():
@@ -752,7 +862,6 @@ def stats():
     sold_count = len([c for c in carpets if c.status == 'sold'])
     created_count = len([c for c in carpets if c.status == 'created'])
     
-    from datetime import timedelta
     scans_stats = []
     for i in range(7):
         date = (datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d')
