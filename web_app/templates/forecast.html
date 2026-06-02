@@ -64,10 +64,6 @@
             color: #856404;
             border-left: 4px solid #ffc107;
         }
-        .error-box h3 {
-            margin-bottom: 10px;
-            color: #856404;
-        }
         .back-btn {
             display: inline-block;
             margin-top: 20px;
@@ -77,20 +73,36 @@
             text-decoration: none;
             border-radius: 8px;
         }
-        .demo-data-btn {
-            display: inline-block;
-            margin-top: 20px;
-            margin-left: 10px;
-            padding: 10px 20px;
-            background: #27ae60;
+        .marketplace-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        .marketplace-card {
+            background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
             color: white;
-            text-decoration: none;
-            border-radius: 8px;
-            border: none;
-            cursor: pointer;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+        }
+        .marketplace-card.wb {
+            background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+        }
+        .marketplace-card.ozon {
+            background: linear-gradient(135deg, #e67e22 0%, #d35400 100%);
+        }
+        .marketplace-card h3 {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+        .marketplace-card p {
+            font-size: 13px;
+            opacity: 0.9;
         }
         @media (max-width: 768px) {
             .stats-grid { grid-template-columns: 1fr; }
+            .marketplace-stats { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -98,26 +110,48 @@
 <div class="container">
     <div class="header">
         <h1>📈 Прогноз продаж</h1>
-        <p>На основе исторических данных сканирований</p>
+        <p>На основе исторических данных отправленных заказов с маркетплейсов</p>
     </div>
     
     <div class="content">
+        <!-- Блок статистики маркетплейсов -->
+        <div class="marketplace-stats">
+            <div class="marketplace-card">
+                <h3>{{ marketplace_stats.shipped_orders|default(0) }}</h3>
+                <p>✅ Отправлено заказов</p>
+                <small>всего продаж</small>
+            </div>
+            <div class="marketplace-card">
+                <h3>{{ (marketplace_stats.total_revenue|default(0))|round|int }} ₽</h3>
+                <p>💰 Выручка</p>
+                <small>от отправленных заказов</small>
+            </div>
+            <div class="marketplace-card wb">
+                <h3>{{ marketplace_stats.wb_orders|default(0) }}</h3>
+                <p>📦 Wildberries</p>
+                <small>{{ (marketplace_stats.wb_revenue|default(0))|round|int }} ₽</small>
+            </div>
+            <div class="marketplace-card ozon">
+                <h3>{{ marketplace_stats.ozon_orders|default(0) }}</h3>
+                <p>📦 Ozon</p>
+                <small>{{ (marketplace_stats.ozon_revenue|default(0))|round|int }} ₽</small>
+            </div>
+        </div>
+
         {% if forecast and forecast.error %}
             <div class="error-box">
-                <h3>⚠️ Ошибка доступа к базе данных</h3>
-                <p>Не удалось получить данные для прогноза. Это может быть связано с ограничениями доступа к файлам в программе.</p>
-                <p><strong>Решение:</strong> Убедитесь, что программа имеет доступ к папке с данными. Прогноз будет работать после нескольких сканирований ковров.</p>
-                <br>
-                <small>Техническая информация: {{ forecast.error[:200] if forecast.error else 'Нет данных' }}</small>
+                ⚠️ {{ forecast.error }}
+                <br><br>
+                <small>{{ forecast.message|default('Продолжайте синхронизировать заказы с маркетплейсов, и данные появятся.') }}</small>
             </div>
         {% elif forecast and forecast.no_data %}
             <div class="error-box">
                 <h3>📊 Недостаточно данных для прогноза</h3>
-                <p>{{ forecast.message|default('Для точного прогноза необходимо минимум 7 дней сканирований. Продолжайте сканировать ковры, и данные появятся.') }}</p>
-                <p>📌 <strong>Совет:</strong> Добавьте несколько тестовых ковров и отсканируйте их, чтобы увидеть прогноз.</p>
+                <p>{{ forecast.message|default('Для точного прогноза необходимо минимум 7 отправленных заказов с маркетплейсов.') }}</p>
+                <p>📌 <strong>Совет:</strong> Синхронизируйте заказы с Ozon и Wildberries, отмечайте их как отправленные.</p>
             </div>
-        {% elif forecast and forecast.data and forecast.data|length > 0 %}
-            <!-- Статистика -->
+        {% elif forecast and not forecast.no_data %}
+            <!-- Статистика прогноза -->
             <div class="stats-grid">
                 <div class="stat-card">
                     <h2>{{ forecast.total|default(0) }}</h2>
@@ -143,10 +177,12 @@
             </div>
             
             <!-- График прогноза -->
+            {% if forecast.data and forecast.data|length > 0 %}
             <div class="chart-container">
                 <h3>📊 Прогноз на 30 дней</h3>
                 <canvas id="forecastChart" width="800" height="300"></canvas>
             </div>
+            {% endif %}
             
             <!-- Исторические данные -->
             {% if forecast.historical_data and forecast.historical_data|length > 0 %}
@@ -159,20 +195,20 @@
             <div class="info-box">
                 <strong>ℹ️ О прогнозе</strong><br>
                 📊 Метод расчёта: <strong>{{ forecast.method|default('Скользящее среднее') }}</strong><br>
-                📈 Учтена сезонность: больше продаж в выходные дни<br>
-                💡 Прогноз основан на {{ (trend.last_week|default(0)) + (trend.prev_week|default(0)) }} сканированиях за последние 14 дней
+                📈 Источник данных: <strong>отправленные заказы с маркетплейсов (статус "shipped")</strong><br>
+                💡 Прогноз основан на {{ (trend.last_week|default(0)) + (trend.prev_week|default(0)) }} заказах за последние 14 дней
             </div>
         {% else %}
             <div class="error-box">
                 <h3>📊 Нет данных для прогноза</h3>
-                <p>Добавьте ковры и отсканируйте их, чтобы увидеть прогноз продаж.</p>
-                <p>📌 <strong>Совет:</strong> Используйте USB-сканер для отметки готовых ковров.</p>
+                <p>Добавьте аккаунты маркетплейсов, синхронизируйте заказы и отмечайте их как отправленные.</p>
+                <p>📌 <strong>Совет:</strong> Перейдите в раздел "Аккаунты" и настройте подключение к Ozon/WB.</p>
             </div>
         {% endif %}
         
         <div>
             <a href="/" class="back-btn">← На главную</a>
-            <button onclick="location.reload()" class="demo-data-btn">🔄 Обновить</button>
+            <button onclick="location.reload()" style="margin-left: 10px; padding: 10px 20px; background: #27ae60; color: white; border: none; border-radius: 8px; cursor: pointer;">🔄 Обновить</button>
         </div>
     </div>
 </div>

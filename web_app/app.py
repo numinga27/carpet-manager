@@ -19,7 +19,7 @@ import traceback
 try:
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
-    
+
     font_paths = [
         "C:/Windows/Fonts/arial.ttf",
         "C:/Windows/Fonts/arialbd.ttf",
@@ -27,7 +27,7 @@ try:
         "/System/Library/Fonts/Supplemental/Arial.ttf",
         os.path.join(os.path.dirname(__file__), 'LiberationSans-Regular.ttf'),
     ]
-    
+
     FONT_REGISTERED = False
     for font_path in font_paths:
         if os.path.exists(font_path):
@@ -38,7 +38,7 @@ try:
                 break
             except Exception as e:
                 print(f"[FONT] Ошибка: {e}")
-    
+
     if not FONT_REGISTERED:
         print("[FONT] ⚠️ Русский шрифт не найден, используется стандартный")
 except ImportError:
@@ -266,61 +266,112 @@ def init_database():
         else:
             set_db_version(DB_VERSION)
 
-# ========== ФУНКЦИИ ПРОГНОЗА ==========
+# ========== ФУНКЦИИ ПРОГНОЗА НА ОСНОВЕ ЗАКАЗОВ МАРКЕТПЛЕЙСОВ ==========
 def forecast_sales(days=30):
+    """Прогноз на основе отправленных заказов (status='shipped')"""
     try:
-        scans = ScanLog.query.filter_by(result='success').all()
-        if len(scans) < 7:
-            return {"error": None, "no_data": True, "message": "Недостаточно данных", "data": [], "total": 0, "daily_avg": 0}
-        daily = defaultdict(int)
-        for s in scans:
-            if s.scanned_at:
-                daily[s.scanned_at[:10]] += 1
-        dates = sorted(daily.keys())
-        counts = [daily[d] for d in dates]
-        avg = sum(counts[-7:]) / 7 if len(counts) >= 7 else sum(counts)/len(counts)
-        forecast = [max(0, round(avg * (0.9 + i*0.02))) for i in range(days)]
-        weekday_weights = {0:1.0,1:1.0,2:1.0,3:1.0,4:1.2,5:1.5,6:1.1}
+        orders = MarketplaceOrder.query.filter_by(status='shipped').all()
+        if len(orders) < 7:
+            return {
+                "error": None,
+                "no_data": True,
+                "message": "Недостаточно данных для прогноза (нужно минимум 7 отправленных заказов)",
+                "data": [], "total": 0, "daily_avg": 0,
+                "historical_data": [], "historical_dates": []
+            }
+
+        daily_counts = defaultdict(int)
+        for order in orders:
+            date_str = order.shipped_at if order.shipped_at else order.ordered_at
+            if date_str:
+                date = date_str[:10]
+                daily_counts[date] += 1
+
+        if not daily_counts:
+            return {
+                "error": None,
+                "no_data": True,
+                "message": "Нет данных о датах отправки заказов",
+                "data": [], "total": 0, "daily_avg": 0
+            }
+
+        dates = sorted(daily_counts.keys())
+        counts = [daily_counts[d] for d in dates]
+
+        if len(counts) >= 7:
+            avg = sum(counts[-7:]) / 7
+        else:
+            avg = sum(counts) / len(counts)
+
+        forecast = [max(0, round(avg * (0.9 + (i * 0.02)))) for i in range(days)]
+
+        weekday_weights = {0: 1.0, 1: 1.0, 2: 1.0, 3: 1.0, 4: 1.2, 5: 1.5, 6: 1.1}
         today = datetime.now()
-        f_data = []
-        f_dates = []
+        forecast_with_season = []
+        forecast_dates = []
         for i in range(days):
-            d = today + timedelta(days=i+1)
-            w = weekday_weights.get(d.weekday(), 1.0)
-            f_data.append(round(forecast[i] * w))
-            f_dates.append(d.strftime("%Y-%m-%d"))
+            forecast_date = today + timedelta(days=i+1)
+            weight = weekday_weights.get(forecast_date.weekday(), 1.0)
+            value = round(forecast[i] * weight)
+            forecast_with_season.append(value)
+            forecast_dates.append(forecast_date.strftime("%Y-%m-%d"))
+
         return {
-            "error": None, "no_data": False, "method": "Скользящее среднее",
-            "data": f_data, "dates": f_dates, "total": sum(f_data),
-            "daily_avg": round(sum(f_data)/days,1),
-            "historical_data": counts[-30:], "historical_dates": dates[-30:]
+            "error": None,
+            "no_data": False,
+            "method": "Скользящее среднее (7 дней) на основе заказов маркетплейсов",
+            "data": forecast_with_season,
+            "dates": forecast_dates,
+            "total": sum(forecast_with_season),
+            "daily_avg": round(sum(forecast_with_season) / days, 1),
+            "historical_data": counts[-30:],
+            "historical_dates": dates[-30:]
         }
     except Exception as e:
+        print(f"[FORECAST] Ошибка: {e}")
+        traceback.print_exc()
         return {"error": str(e), "no_data": True, "data": [], "total": 0, "daily_avg": 0}
 
 def calculate_trend():
+    """Тренд на основе отправленных заказов"""
     try:
-        scans = ScanLog.query.filter_by(result='success').all()
-        if len(scans) < 14:
-            return {"trend": "unknown", "percent": 0}
+        orders = MarketplaceOrder.query.filter_by(status='shipped').all()
+        if len(orders) < 14:
+            return {"trend": "unknown", "percent": 0, "last_week": 0, "prev_week": 0}
+
         now = datetime.now()
-        last_week = prev_week = 0
-        for s in scans:
-            if s.scanned_at:
+        last_week = 0
+        prev_week = 0
+
+        for order in orders:
+            date_str = order.shipped_at if order.shipped_at else order.ordered_at
+            if date_str:
                 try:
-                    d = datetime.strptime(s.scanned_at[:10], "%Y-%m-%d")
-                    diff = (now - d).days
-                    if diff <= 7:
+                    order_date = datetime.strptime(date_str[:10], "%Y-%m-%d")
+                    days_diff = (now - order_date).days
+                    if days_diff <= 7:
                         last_week += 1
-                    elif diff <= 14:
+                    elif days_diff <= 14:
                         prev_week += 1
                 except:
                     continue
-        percent = 100 if prev_week == 0 else round((last_week - prev_week)/prev_week*100,1)
-        trend = "growing" if percent > 10 else ("declining" if percent < -10 else "stable")
+
+        if prev_week == 0:
+            percent = 100 if last_week > 0 else 0
+        else:
+            percent = round((last_week - prev_week) / prev_week * 100, 1)
+
+        if percent > 10:
+            trend = "growing"
+        elif percent < -10:
+            trend = "declining"
+        else:
+            trend = "stable"
+
         return {"trend": trend, "percent": percent, "last_week": last_week, "prev_week": prev_week}
-    except:
-        return {"trend": "unknown", "percent": 0}
+    except Exception as e:
+        print(f"[TREND] Ошибка: {e}")
+        return {"trend": "unknown", "percent": 0, "last_week": 0, "prev_week": 0}
 
 # ========== API МАРКЕТПЛЕЙСОВ ==========
 class MarketplaceAPI:
@@ -454,7 +505,7 @@ with app.app_context():
                 c.qr_code_path = generate_qr_code(c.carpet_id, {})
         db.session.commit()
 
-# ========== МАРШРУТЫ (сокращённо, но полный набор) ==========
+# ========== МАРШРУТЫ ==========
 @app.route('/')
 def index():
     return render_template('index.html',
@@ -469,7 +520,26 @@ def index():
 
 @app.route('/forecast')
 def forecast_page():
-    return render_template('forecast.html', forecast=forecast_sales(30), trend=calculate_trend())
+    try:
+        forecast = forecast_sales(30)
+        trend = calculate_trend()
+        marketplace_stats = {
+            'total_orders': MarketplaceOrder.query.count(),
+            'shipped_orders': MarketplaceOrder.query.filter_by(status='shipped').count(),
+            'processing_orders': MarketplaceOrder.query.filter_by(status='processing').count(),
+            'ready_orders': MarketplaceOrder.query.filter_by(status='ready').count(),
+            'new_orders': MarketplaceOrder.query.filter_by(status='new').count(),
+            'total_revenue': db.session.query(db.func.sum(MarketplaceOrder.price)).filter(MarketplaceOrder.status == 'shipped').scalar() or 0,
+            'wb_orders': MarketplaceOrder.query.filter_by(marketplace='wb', status='shipped').count(),
+            'ozon_orders': MarketplaceOrder.query.filter_by(marketplace='ozon', status='shipped').count(),
+            'wb_revenue': db.session.query(db.func.sum(MarketplaceOrder.price)).filter(MarketplaceOrder.marketplace == 'wb', MarketplaceOrder.status == 'shipped').scalar() or 0,
+            'ozon_revenue': db.session.query(db.func.sum(MarketplaceOrder.price)).filter(MarketplaceOrder.marketplace == 'ozon', MarketplaceOrder.status == 'shipped').scalar() or 0,
+        }
+        return render_template('forecast.html', forecast=forecast, trend=trend, marketplace_stats=marketplace_stats)
+    except Exception as e:
+        print(f"[FORECAST_PAGE] Ошибка: {e}")
+        traceback.print_exc()
+        return render_template('forecast.html', forecast={"error": str(e), "no_data": True}, trend={"trend": "unknown", "percent": 0}, marketplace_stats={})
 
 @app.route('/add_carpet', methods=['POST'])
 def add_carpet():
@@ -832,6 +902,7 @@ def generate_qr_pdf():
     except Exception as e:
         return f"Ошибка: {e}", 500
 
+# ========== ОСНОВНАЯ ФУНКЦИЯ ГЕНЕРАЦИИ PDF С QR НА ВЕСЬ ЛИСТ (УМЕНЬШЕН ДО 85%) ==========
 @app.route('/generate_single_pages_pdf')
 def generate_single_pages_pdf():
     t = request.args.get('carpet_type_id','')
@@ -852,46 +923,58 @@ def generate_single_pages_pdf():
         from PIL import Image
         buffer = io.BytesIO()
         w, h = A4
-        scale = 0.9
-        nw, nh = w*scale, h*scale
-        xo = (w-nw)/2
-        yo = (h-nh)/2
-        text_h = 63
+        scale_factor = 0.85
+        new_w = w * scale_factor
+        new_h = h * scale_factor
+        x_offset = (w - new_w) / 2
+        y_offset = (h - new_h) / 2
+        text_height = 60
         pdf = canvas.Canvas(buffer, pagesize=A4)
         for i, carpet in enumerate(carpets):
             if not carpet.qr_code_path or not os.path.exists(carpet.qr_code_path):
                 continue
-            pil = Image.open(carpet.qr_code_path)
-            iw, ih = pil.size
-            scl = max(nw/iw, nh/ih)
-            qw, qh = iw*scl, ih*scl
-            qx = xo + (nw-qw)/2
-            qy = yo + (nh-qh)/2
+            pil_img = Image.open(carpet.qr_code_path)
+            img_w, img_h = pil_img.size
+            scale = max(new_w / img_w, new_h / img_h)
+            qr_w = img_w * scale
+            qr_h = img_h * scale
+            qr_x = x_offset + (new_w - qr_w) / 2
+            qr_y = y_offset + (new_h - qr_h) / 2
             tmp = io.BytesIO()
-            pil.resize((int(qw), int(qh)), Image.Resampling.LANCZOS).save(tmp, format='PNG', dpi=(300,300))
+            pil_img.resize((int(qr_w), int(qr_h)), Image.Resampling.LANCZOS).save(tmp, format='PNG', dpi=(300,300))
             tmp.seek(0)
-            pdf.drawImage(ImageReader(tmp), qx, qy, qw, qh)
+            pdf.drawImage(ImageReader(tmp), qr_x, qr_y, qr_w, qr_h)
             pdf.setFillColorRGB(1,1,1)
-            pdf.rect(0,0,w,text_h, fill=1, stroke=0)
-            pdf.setFillColorRGB(0,0,0)
+            pdf.rect(0, 0, w, text_height, fill=1, stroke=0)
             ct = db.session.get(CarpetType, carpet.carpet_type_id)
             cr = db.session.get(Craftsman, carpet.craftsman_id)
-            pdf.setFont("Helvetica-Bold", 16)
-            pdf.drawCentredString(w/2, text_h-18, carpet.carpet_id)
-            pdf.setFont("RussianFont" if FONT_REGISTERED else "Helvetica", 11)
-            pdf.drawCentredString(w/2, text_h-36, f"{ct.name if ct else '-'} | {cr.name if cr else '-'}")
+            type_name = ct.name if ct else '-'
+            craftsman_name = cr.name if cr else '-'
+            pdf.setFillColorRGB(0,0,0)
+            pdf.setFont("Helvetica-Bold", 15)
+            pdf.drawCentredString(w/2, text_height - 16, carpet.carpet_id)
+            if FONT_REGISTERED:
+                pdf.setFont("RussianFont", 10)
+            else:
+                pdf.setFont("Helvetica", 10)
+            pdf.drawCentredString(w/2, text_height - 32, f"{type_name} | {craftsman_name}")
             pdf.setFont("Helvetica-Bold", 12)
-            pdf.drawCentredString(w/2, text_h-52, f"{carpet.price:,} ₽".replace(',',' '))
+            price_str = f"{carpet.price:,} ₽".replace(',', ' ')
+            pdf.drawCentredString(w/2, text_height - 48, price_str)
             pdf.setFont("Helvetica", 7)
             pdf.setFillColorRGB(0.5,0.5,0.5)
-            pdf.drawRightString(w-20, 9, f"Страница {i+1}/{len(carpets)}")
+            pdf.drawRightString(w - 20, 8, f"Страница {i+1} из {len(carpets)}")
             pdf.showPage()
         pdf.save()
         buffer.seek(0)
-        return send_file(buffer, mimetype='application/pdf', as_attachment=True, download_name=f'qr_full_page_{len(carpets)}_pages.pdf')
+        return send_file(buffer, mimetype='application/pdf', as_attachment=True,
+                         download_name=f'qr_full_page_{len(carpets)}_pages.pdf')
     except Exception as e:
+        print(f"Ошибка: {e}")
+        traceback.print_exc()
         return f"Ошибка: {e}", 500
 
+# ========== МАРШРУТЫ МАРКЕТПЛЕЙСОВ ==========
 @app.route('/marketplace_accounts')
 def marketplace_accounts():
     accounts = MarketplaceAccount.query.all()
