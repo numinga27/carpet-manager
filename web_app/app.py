@@ -673,7 +673,6 @@ def generate_qr_zip():
 
 @app.route('/generate_qr_pdf')
 def generate_qr_pdf():
-    """Массовая печать наклеек 30×20 мм (7×5 = 35 наклеек на лист A4)"""
     carpet_type_id = request.args.get('carpet_type_id', '')
     craftsman_id = request.args.get('craftsman_id', '')
     status = request.args.get('status', '')
@@ -696,79 +695,63 @@ def generate_qr_pdf():
         from reportlab.lib.pagesizes import A4
         from reportlab.pdfgen import canvas
         from reportlab.lib.utils import ImageReader
-        from reportlab.lib.units import mm
+        from PIL import Image
         
         buffer = io.BytesIO()
+        width, height = A4
         
-        page_width = 210 * mm
-        page_height = 297 * mm
-        
-        sticker_width = 30 * mm
-        sticker_height = 20 * mm
-        cols = 7
-        rows = 5
-        stickers_per_page = cols * rows
-        
-        margin_left = (page_width - sticker_width * cols) / 2
-        margin_top = (page_height - sticker_height * rows) / 2
-        
-        c = canvas.Canvas(buffer, pagesize=A4)
-        
-        for idx, carpet in enumerate(carpets):
+        for i, carpet in enumerate(carpets):
             if not carpet.qr_code_path or not os.path.exists(carpet.qr_code_path):
                 continue
             
-            pos_on_page = idx % stickers_per_page
+            # Загружаем QR-код и увеличиваем его разрешение
+            pil_img = Image.open(carpet.qr_code_path)
+            # Увеличиваем размер изображения до размеров страницы
+            pil_img_resized = pil_img.resize((int(width), int(height)), Image.Resampling.LANCZOS)
             
-            if idx > 0 and pos_on_page == 0:
-                c.showPage()
-                c = canvas.Canvas(buffer, pagesize=A4)
+            # Сохраняем в временный буфер
+            temp_buffer = io.BytesIO()
+            pil_img_resized.save(temp_buffer, format='PNG')
+            temp_buffer.seek(0)
             
-            col = pos_on_page % cols
-            row = pos_on_page // cols
+            c = canvas.Canvas(buffer, pagesize=A4)
             
-            x = margin_left + col * sticker_width
-            y = margin_top + (rows - 1 - row) * sticker_height
+            # Рисуем растянутый QR-код
+            img = ImageReader(temp_buffer)
+            c.drawImage(img, 0, 0, width, height)
             
-            c.setStrokeColorRGB(0.7, 0.7, 0.7)
-            c.rect(x, y, sticker_width, sticker_height)
+            # Белая полоса внизу для текста
+            c.setFillColorRGB(1, 1, 1)
+            c.rect(0, 0, width, 55, fill=1, stroke=0)
             
-            qr_size = 12 * mm
-            qr_x = x + 1.5 * mm
-            qr_y = y + 2 * mm
-            
-            img = ImageReader(carpet.qr_code_path)
-            c.drawImage(img, qr_x, qr_y, qr_size, qr_size)
-            
-            text_x = qr_x + qr_size + 1 * mm
-            text_y = y + sticker_height - 2.5 * mm
+            # Текст
+            c.setFillColorRGB(0, 0, 0)
+            c.setFont("Helvetica-Bold", 14)
             
             carpet_type = CarpetType.query.get(carpet.carpet_type_id)
             type_name = carpet_type.name if carpet_type else '-'
             craftsman = Craftsman.query.get(carpet.craftsman_id)
             craftsman_name = craftsman.name if craftsman else '-'
             
-            if FONT_REGISTERED:
-                c.setFont("RussianFont", 5)
-            else:
-                c.setFont("Helvetica", 5)
+            c.drawCentredString(width / 2, 38, carpet.carpet_id)
+            c.setFont("Helvetica", 10)
+            c.drawCentredString(width / 2, 24, f"{type_name} | {craftsman_name} | {carpet.price} ₽")
+            c.setFont("Helvetica", 8)
+            c.drawCentredString(width / 2, 10, f"{i+1} / {len(carpets)}")
             
-            c.drawString(text_x, text_y, f"{carpet.carpet_id}")
-            c.drawString(text_x, text_y - 2.5 * mm, f"{type_name[:10]}")
-            c.drawString(text_x, text_y - 5 * mm, f"{craftsman_name[:10]}")
-            c.drawString(text_x, text_y - 7.5 * mm, f"{carpet.price} p")
+            c.save()
         
-        c.save()
         buffer.seek(0)
-        
         return send_file(
             buffer, 
             mimetype='application/pdf', 
             as_attachment=True, 
-            download_name='qr_stickers.pdf'
+            download_name=f'qr_print_{len(carpets)}_pages.pdf'
         )
     except Exception as e:
         print(f"Ошибка: {e}")
+        import traceback
+        traceback.print_exc()
         return f"Ошибка: {str(e)}", 500
 
 @app.route('/generate_single_pages_pdf')
@@ -966,4 +949,4 @@ if __name__ == '__main__':
     print(f"Открой в браузере: http://localhost:{port}")
     print("=" * 60)
     threading.Thread(target=open_browser, args=(port,), daemon=True).start()
-    app.run(host='0.0.0.0', port=port, debug=False)
+    app.run(host='0.0.0.0', port=port, debug=False) 
