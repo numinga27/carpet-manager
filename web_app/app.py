@@ -10,8 +10,40 @@ import time
 import io
 import zipfile
 import socket
-import numpy as np
 from collections import defaultdict
+
+# ========== ПОДДЕРЖКА РУССКОГО ШРИФТА ДЛЯ PDF ==========
+try:
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    
+    # Пути к системным шрифтам с поддержкой кириллицы
+    font_paths = [
+        "C:/Windows/Fonts/arial.ttf",  # Windows
+        "/System/Library/Fonts/Arial.ttf",  # Mac
+        "/System/Library/Fonts/Supplemental/Arial.ttf",  # Mac (альтернативный)
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",  # Linux
+        os.path.join(os.path.dirname(__file__), 'LiberationSans-Regular.ttf'),  # Локальная папка
+    ]
+    
+    FONT_REGISTERED = False
+    for font_path in font_paths:
+        if os.path.exists(font_path):
+            try:
+                pdfmetrics.registerFont(TTFont('RussianFont', font_path))
+                FONT_REGISTERED = True
+                print(f"[FONT] Русский шрифт загружен: {font_path}")
+                break
+            except Exception as e:
+                print(f"[FONT] Ошибка загрузки шрифта {font_path}: {e}")
+    
+    if not FONT_REGISTERED:
+        print("[FONT] ⚠️ Русский шрифт не найден! Буквы могут отображаться квадратами.")
+        print("[FONT] Рекомендация: поместите файл LiberationSans-Regular.ttf в папку с программой")
+except ImportError:
+    print("[FONT] ReportLab не установлен")
+    FONT_REGISTERED = False
+# ===============================================
 
 # ========== ОПРЕДЕЛЕНИЕ ПУТЕЙ ДЛЯ РАЗНЫХ ПЛАТФОРМ ==========
 if getattr(sys, 'frozen', False):
@@ -29,14 +61,14 @@ try:
         f.write('test')
     os.remove(test_file)
     DATA_FOLDER = local_data_folder
-    print(f"[OK] Lokaler Ordner: {DATA_FOLDER}")
+    print(f"[OK] Локальная папка: {DATA_FOLDER}")
 except (PermissionError, OSError):
     if sys.platform == 'win32':
         DATA_FOLDER = os.path.join(os.environ.get('APPDATA', os.path.expanduser('~')), 'CarpetManager')
     else:
         DATA_FOLDER = os.path.join(os.path.expanduser('~'), '.carpetmanager')
     os.makedirs(DATA_FOLDER, exist_ok=True)
-    print(f"[OK] Benutzerordner: {DATA_FOLDER}")
+    print(f"[OK] Папка пользователя: {DATA_FOLDER}")
 
 template_folder = os.path.join(base_path, 'templates')
 app = Flask(__name__, template_folder=template_folder)
@@ -51,8 +83,8 @@ db = SQLAlchemy(app)
 QR_FOLDER = os.path.join(DATA_FOLDER, 'qr_codes')
 os.makedirs(QR_FOLDER, exist_ok=True)
 
-print(f"[DB] Datenbank: {DB_PATH}")
-print(f"[QR] QR-Codes: {QR_FOLDER}")
+print(f"[DB] База данных: {DB_PATH}")
+print(f"[QR] QR-коды: {QR_FOLDER}")
 
 # ========== ФУНКЦИЯ ПОИСКА СВОБОДНОГО ПОРТА ==========
 def find_free_port():
@@ -62,7 +94,7 @@ def find_free_port():
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.bind(('', port))
                 s.listen(1)
-                print(f"[OK] Freier Port gefunden: {port}")
+                print(f"[OK] Свободный порт: {port}")
                 return port
         except OSError:
             continue
@@ -71,10 +103,10 @@ def find_free_port():
             s.bind(('', 0))
             s.listen(1)
             port = s.getsockname()[1]
-            print(f"[OK] Freier Port gefunden (auto): {port}")
+            print(f"[OK] Свободный порт (авто): {port}")
             return port
     except:
-        print("[ERROR] Kein freier Port gefunden!")
+        print("[ERROR] Не найден свободный порт!")
         return 8080
 
 # ========== МОДЕЛИ ДАННЫХ ==========
@@ -131,21 +163,13 @@ def forecast_sales(days=30):
     dates = sorted(daily_counts.keys())
     counts = [daily_counts[d] for d in dates]
     
-    if len(counts) < 14:
-        avg = sum(counts) / len(counts)
-        forecast = [max(0, round(avg)) for _ in range(days)]
-        method = "Среднее арифметическое"
+    if len(counts) >= 7:
+        last_7 = counts[-7:]
+        avg = sum(last_7) / len(last_7)
     else:
-        alpha = 0.3
-        smoothed = [counts[0]]
-        for i in range(1, len(counts)):
-            smoothed.append(alpha * counts[i] + (1 - alpha) * smoothed[-1])
-        
-        last_smoothed = smoothed[-1]
-        np.random.seed(42)
-        variations = np.random.normal(0, last_smoothed * 0.15, days)
-        forecast = [max(0, round(last_smoothed + v)) for v in variations]
-        method = "Экспоненциальное сглаживание"
+        avg = sum(counts) / len(counts)
+    
+    forecast = [max(0, round(avg * (0.9 + (i * 0.02)))) for i in range(days)]
     
     weekday_weights = {0: 1.0, 1: 1.0, 2: 1.0, 3: 1.0, 4: 1.2, 5: 1.5, 6: 1.1}
     today = datetime.now()
@@ -160,7 +184,7 @@ def forecast_sales(days=30):
         forecast_dates.append(forecast_date.strftime("%Y-%m-%d"))
     
     return {
-        "method": method,
+        "method": "Скользящее среднее (7 дней)",
         "data": forecast_with_season,
         "dates": forecast_dates,
         "total": sum(forecast_with_season),
@@ -252,7 +276,7 @@ with app.app_context():
     
     if Carpet.query.count() == 0:
         test_data = [
-            ("CARPET-0001", 1, 1, 15000, "scanned", "2025-05-28 14:30:00"),
+            ("CARPET-0001", 1, 1, 15000, "scanned", "2025-06-01 14:30:00"),
             ("CARPET-0002", 2, 2, 12000, "created", None),
             ("CARPET-0003", 3, 1, 8000, "created", None),
             ("CARPET-0004", 1, 3, 49, "created", None)
@@ -548,6 +572,7 @@ def print_qr(carpet_id):
 
 @app.route('/print_single_pdf/<carpet_id>')
 def print_single_pdf(carpet_id):
+    """Печать одного QR на наклейку 30×20 мм"""
     carpet = Carpet.query.filter_by(carpet_id=carpet_id).first()
     if not carpet:
         return "Ковёр не найден", 404
@@ -562,45 +587,51 @@ def print_single_pdf(carpet_id):
         c = canvas.Canvas(buffer, pagesize=A4)
         width, height = A4
         
-        # Размер наклейки 60x40 мм
-        sticker_width = 60 * mm
-        sticker_height = 40 * mm
+        # Размер наклейки 30×20 мм
+        sticker_width = 30 * mm
+        sticker_height = 20 * mm
         
+        # Центрируем на странице
         x_center = (width - sticker_width) / 2
         y_center = (height - sticker_height) / 2
         
+        # Рамка наклейки
         c.rect(x_center, y_center, sticker_width, sticker_height)
         
-        # QR-код
-        qr_size = 25 * mm
-        qr_x = x_center + 5 * mm
-        qr_y = y_center + 5 * mm
+        # QR-код (12×12 мм)
+        qr_size = 12 * mm
+        qr_x = x_center + 2 * mm
+        qr_y = y_center + 2 * mm
         
         if carpet.qr_code_path and os.path.exists(carpet.qr_code_path):
             img = ImageReader(carpet.qr_code_path)
             c.drawImage(img, qr_x, qr_y, qr_size, qr_size)
         
-        # Информация
-        text_x = qr_x + qr_size + 3 * mm
-        text_y = y_center + sticker_height - 8 * mm
+        # Информация справа от QR
+        text_x = qr_x + qr_size + 1 * mm
+        text_y = y_center + sticker_height - 3 * mm
         
         carpet_type = CarpetType.query.get(carpet.carpet_type_id)
         type_name = carpet_type.name if carpet_type else '-'
         craftsman = Craftsman.query.get(carpet.craftsman_id)
         craftsman_name = craftsman.name if craftsman else '-'
         
-        c.setFont("Helvetica-Bold", 8)
-        c.drawString(text_x, text_y, f"ID: {carpet.carpet_id}")
-        c.setFont("Helvetica", 7)
-        c.drawString(text_x, text_y - 4 * mm, f"Тип: {type_name}")
-        c.drawString(text_x, text_y - 8 * mm, f"Швея: {craftsman_name}")
-        c.drawString(text_x, text_y - 12 * mm, f"Цена: {carpet.price} ₽")
+        # Используем русский шрифт, если зарегистрирован
+        if FONT_REGISTERED:
+            c.setFont("RussianFont", 5)
+        else:
+            c.setFont("Helvetica", 5)
+        
+        c.drawString(text_x, text_y, f"{carpet.carpet_id}")
+        c.drawString(text_x, text_y - 3 * mm, f"{type_name}")
+        c.drawString(text_x, text_y - 6 * mm, f"{craftsman_name}")
+        c.drawString(text_x, text_y - 9 * mm, f"{carpet.price} p")
         
         c.save()
         buffer.seek(0)
         return send_file(buffer, mimetype='application/pdf', as_attachment=True, download_name=f'{carpet.carpet_id}_sticker.pdf')
-    except ImportError:
-        return "Установите reportlab: pip install reportlab", 500
+    except Exception as e:
+        return f"Ошибка: {str(e)}", 500
 
 @app.route('/mass_print_qr')
 def mass_print_qr():
@@ -650,6 +681,7 @@ def generate_qr_zip():
 
 @app.route('/generate_qr_pdf')
 def generate_qr_pdf():
+    """Массовая печать наклеек 30×20 мм (5×7 = 35 наклеек на лист A4)"""
     carpet_type_id = request.args.get('carpet_type_id', '')
     craftsman_id = request.args.get('craftsman_id', '')
     status = request.args.get('status', '')
@@ -662,6 +694,8 @@ def generate_qr_pdf():
     if status:
         query = query.filter(Carpet.status == status)
     
+    carpets = query.all()
+    
     try:
         from reportlab.lib.pagesizes import A4
         from reportlab.pdfgen import canvas
@@ -672,11 +706,11 @@ def generate_qr_pdf():
         c = canvas.Canvas(buffer, pagesize=A4)
         width, height = A4
         
-        # Размер наклейки 60x40 мм, 3x5 на листе
-        sticker_width = 60 * mm
-        sticker_height = 40 * mm
-        cols = 3
-        rows = 5
+        # Размер наклейки 30×20 мм
+        sticker_width = 30 * mm
+        sticker_height = 20 * mm
+        cols = 7  # 7 наклеек в строку
+        rows = 5  # 5 строк на листе
         
         margin_left = (width - sticker_width * cols) / 2
         margin_top = (height - sticker_height * rows) / 2
@@ -695,35 +729,42 @@ def generate_qr_pdf():
             x = margin_left + col * sticker_width
             y = margin_top + (rows - 1 - row) * sticker_height
             
+            # Рамка наклейки (тонкая линия)
+            c.setStrokeColorRGB(0.8, 0.8, 0.8)
             c.rect(x, y, sticker_width, sticker_height)
             
-            qr_size = 25 * mm
-            qr_x = x + 5 * mm
-            qr_y = y + 5 * mm
+            # QR-код
+            qr_size = 12 * mm
+            qr_x = x + 1.5 * mm
+            qr_y = y + 2 * mm
             
             img = ImageReader(carpet.qr_code_path)
             c.drawImage(img, qr_x, qr_y, qr_size, qr_size)
             
-            text_x = qr_x + qr_size + 3 * mm
-            text_y = y + sticker_height - 8 * mm
+            # Информация
+            text_x = qr_x + qr_size + 1 * mm
+            text_y = y + sticker_height - 2.5 * mm
             
             carpet_type = CarpetType.query.get(carpet.carpet_type_id)
             type_name = carpet_type.name if carpet_type else '-'
             craftsman = Craftsman.query.get(carpet.craftsman_id)
             craftsman_name = craftsman.name if craftsman else '-'
             
-            c.setFont("Helvetica-Bold", 7)
-            c.drawString(text_x, text_y, f"ID: {carpet.carpet_id}")
-            c.setFont("Helvetica", 7)
-            c.drawString(text_x, text_y - 4 * mm, f"Тип: {type_name}")
-            c.drawString(text_x, text_y - 8 * mm, f"Швея: {craftsman_name}")
-            c.drawString(text_x, text_y - 12 * mm, f"Цена: {carpet.price} ₽")
+            if FONT_REGISTERED:
+                c.setFont("RussianFont", 5)
+            else:
+                c.setFont("Helvetica", 5)
+            
+            c.drawString(text_x, text_y, f"{carpet.carpet_id}")
+            c.drawString(text_x, text_y - 2.5 * mm, f"{type_name}")
+            c.drawString(text_x, text_y - 5 * mm, f"{craftsman_name}")
+            c.drawString(text_x, text_y - 7.5 * mm, f"{carpet.price} p")
         
         c.save()
         buffer.seek(0)
-        return send_file(buffer, mimetype='application/pdf', as_attachment=True, download_name='qr_stickers.pdf')
-    except ImportError:
-        return "Установите reportlab: pip install reportlab", 500
+        return send_file(buffer, mimetype='application/pdf', as_attachment=True, download_name='qr_stickers_30x20.pdf')
+    except Exception as e:
+        return f"Ошибка: {str(e)}", 500
 
 @app.route('/generate_single_pages_pdf')
 def generate_single_pages_pdf():
@@ -752,54 +793,57 @@ def generate_single_pages_pdf():
         from reportlab.lib.units import mm
         
         buffer = io.BytesIO()
-        c = canvas.Canvas(buffer, pagesize=A4)
-        width, height = A4
-        
-        sticker_width = 60 * mm
-        sticker_height = 40 * mm
         
         for i, carpet in enumerate(carpets):
             if not carpet.qr_code_path or not os.path.exists(carpet.qr_code_path):
                 continue
+            
+            c = canvas.Canvas(buffer, pagesize=A4)
+            width, height = A4
+            
+            sticker_width = 30 * mm
+            sticker_height = 20 * mm
             
             x_center = (width - sticker_width) / 2
             y_center = (height - sticker_height) / 2
             
             c.rect(x_center, y_center, sticker_width, sticker_height)
             
-            qr_size = 25 * mm
-            qr_x = x_center + 5 * mm
-            qr_y = y_center + 5 * mm
+            qr_size = 12 * mm
+            qr_x = x_center + 1.5 * mm
+            qr_y = y_center + 2 * mm
             
             img = ImageReader(carpet.qr_code_path)
             c.drawImage(img, qr_x, qr_y, qr_size, qr_size)
             
-            text_x = qr_x + qr_size + 3 * mm
-            text_y = y_center + sticker_height - 8 * mm
+            text_x = qr_x + qr_size + 1 * mm
+            text_y = y_center + sticker_height - 2.5 * mm
             
             carpet_type = CarpetType.query.get(carpet.carpet_type_id)
             type_name = carpet_type.name if carpet_type else '-'
             craftsman = Craftsman.query.get(carpet.craftsman_id)
             craftsman_name = craftsman.name if craftsman else '-'
             
-            c.setFont("Helvetica-Bold", 8)
-            c.drawString(text_x, text_y, f"ID: {carpet.carpet_id}")
-            c.setFont("Helvetica", 7)
-            c.drawString(text_x, text_y - 4 * mm, f"Тип: {type_name}")
-            c.drawString(text_x, text_y - 8 * mm, f"Швея: {craftsman_name}")
-            c.drawString(text_x, text_y - 12 * mm, f"Цена: {carpet.price} ₽")
+            if FONT_REGISTERED:
+                c.setFont("RussianFont", 5)
+            else:
+                c.setFont("Helvetica", 5)
             
-            c.setFont("Helvetica", 7)
-            c.drawCentredString(width / 2, 30, f"Лист {i+1} из {len(carpets)}")
+            c.drawString(text_x, text_y, f"{carpet.carpet_id}")
+            c.drawString(text_x, text_y - 2.5 * mm, f"{type_name}")
+            c.drawString(text_x, text_y - 5 * mm, f"{craftsman_name}")
+            c.drawString(text_x, text_y - 7.5 * mm, f"{carpet.price} p")
+            
+            c.setFont("Helvetica", 6)
+            c.drawCentredString(width / 2, 15, f"Лист {i+1} из {len(carpets)}")
             
             if i < len(carpets) - 1:
                 c.showPage()
         
-        c.save()
         buffer.seek(0)
         return send_file(buffer, mimetype='application/pdf', as_attachment=True, download_name='qr_single_pages.pdf')
-    except ImportError:
-        return "Установите reportlab: pip install reportlab", 500
+    except Exception as e:
+        return f"Ошибка: {str(e)}", 500
 
 @app.route('/search')
 def search():
