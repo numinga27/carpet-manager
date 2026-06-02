@@ -17,13 +17,11 @@ try:
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
     
-    # Пути к системным шрифтам с поддержкой кириллицы
     font_paths = [
-        "C:/Windows/Fonts/arial.ttf",  # Windows
-        "/System/Library/Fonts/Arial.ttf",  # Mac
-        "/System/Library/Fonts/Supplemental/Arial.ttf",  # Mac (альтернативный)
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",  # Linux
-        os.path.join(os.path.dirname(__file__), 'LiberationSans-Regular.ttf'),  # Локальная папка
+        "C:/Windows/Fonts/arial.ttf",
+        "/System/Library/Fonts/Arial.ttf",
+        "/System/Library/Fonts/Supplemental/Arial.ttf",
+        os.path.join(os.path.dirname(__file__), 'LiberationSans-Regular.ttf'),
     ]
     
     FONT_REGISTERED = False
@@ -35,23 +33,21 @@ try:
                 print(f"[FONT] Русский шрифт загружен: {font_path}")
                 break
             except Exception as e:
-                print(f"[FONT] Ошибка загрузки шрифта {font_path}: {e}")
+                print(f"[FONT] Ошибка: {e}")
     
     if not FONT_REGISTERED:
-        print("[FONT] ⚠️ Русский шрифт не найден! Буквы могут отображаться квадратами.")
-        print("[FONT] Рекомендация: поместите файл LiberationSans-Regular.ttf в папку с программой")
+        print("[FONT] ⚠️ Русский шрифт не найден")
 except ImportError:
     print("[FONT] ReportLab не установлен")
     FONT_REGISTERED = False
 # ===============================================
 
-# ========== ОПРЕДЕЛЕНИЕ ПУТЕЙ ДЛЯ РАЗНЫХ ПЛАТФОРМ ==========
+# ========== ОПРЕДЕЛЕНИЕ ПУТЕЙ ==========
 if getattr(sys, 'frozen', False):
     base_path = os.path.dirname(sys.executable)
 else:
     base_path = os.path.dirname(__file__)
 
-# Папка для данных
 DATA_FOLDER = None
 local_data_folder = os.path.join(base_path, 'CarpetManagerData')
 try:
@@ -86,7 +82,7 @@ os.makedirs(QR_FOLDER, exist_ok=True)
 print(f"[DB] База данных: {DB_PATH}")
 print(f"[QR] QR-коды: {QR_FOLDER}")
 
-# ========== ФУНКЦИЯ ПОИСКА СВОБОДНОГО ПОРТА ==========
+# ========== ФУНКЦИЯ ПОИСКА ПОРТА ==========
 def find_free_port():
     preferred_ports = [5000, 5001, 5002, 8080, 8081, 3000, 8000, 8888]
     for port in preferred_ports:
@@ -572,7 +568,6 @@ def print_qr(carpet_id):
 
 @app.route('/print_single_pdf/<carpet_id>')
 def print_single_pdf(carpet_id):
-    """Печать одного QR на наклейку 30×20 мм"""
     carpet = Carpet.query.filter_by(carpet_id=carpet_id).first()
     if not carpet:
         return "Ковёр не найден", 404
@@ -587,45 +582,40 @@ def print_single_pdf(carpet_id):
         c = canvas.Canvas(buffer, pagesize=A4)
         width, height = A4
         
-        # Размер наклейки 30×20 мм
         sticker_width = 30 * mm
         sticker_height = 20 * mm
         
-        # Центрируем на странице
         x_center = (width - sticker_width) / 2
         y_center = (height - sticker_height) / 2
         
-        # Рамка наклейки
+        c.setStrokeColorRGB(0.8, 0.8, 0.8)
         c.rect(x_center, y_center, sticker_width, sticker_height)
         
-        # QR-код (12×12 мм)
         qr_size = 12 * mm
-        qr_x = x_center + 2 * mm
+        qr_x = x_center + 1.5 * mm
         qr_y = y_center + 2 * mm
         
         if carpet.qr_code_path and os.path.exists(carpet.qr_code_path):
             img = ImageReader(carpet.qr_code_path)
             c.drawImage(img, qr_x, qr_y, qr_size, qr_size)
         
-        # Информация справа от QR
         text_x = qr_x + qr_size + 1 * mm
-        text_y = y_center + sticker_height - 3 * mm
+        text_y = y_center + sticker_height - 2.5 * mm
         
         carpet_type = CarpetType.query.get(carpet.carpet_type_id)
         type_name = carpet_type.name if carpet_type else '-'
         craftsman = Craftsman.query.get(carpet.craftsman_id)
         craftsman_name = craftsman.name if craftsman else '-'
         
-        # Используем русский шрифт, если зарегистрирован
         if FONT_REGISTERED:
             c.setFont("RussianFont", 5)
         else:
             c.setFont("Helvetica", 5)
         
         c.drawString(text_x, text_y, f"{carpet.carpet_id}")
-        c.drawString(text_x, text_y - 3 * mm, f"{type_name}")
-        c.drawString(text_x, text_y - 6 * mm, f"{craftsman_name}")
-        c.drawString(text_x, text_y - 9 * mm, f"{carpet.price} p")
+        c.drawString(text_x, text_y - 2.5 * mm, f"{type_name}")
+        c.drawString(text_x, text_y - 5 * mm, f"{craftsman_name}")
+        c.drawString(text_x, text_y - 7.5 * mm, f"{carpet.price} p")
         
         c.save()
         buffer.seek(0)
@@ -681,7 +671,6 @@ def generate_qr_zip():
 
 @app.route('/generate_qr_pdf')
 def generate_qr_pdf():
-    """Массовая печать наклеек 30×20 мм (5×7 = 35 наклеек на лист A4)"""
     carpet_type_id = request.args.get('carpet_type_id', '')
     craftsman_id = request.args.get('craftsman_id', '')
     status = request.args.get('status', '')
@@ -706,11 +695,10 @@ def generate_qr_pdf():
         c = canvas.Canvas(buffer, pagesize=A4)
         width, height = A4
         
-        # Размер наклейки 30×20 мм
         sticker_width = 30 * mm
         sticker_height = 20 * mm
-        cols = 7  # 7 наклеек в строку
-        rows = 5  # 5 строк на листе
+        cols = 7
+        rows = 5
         
         margin_left = (width - sticker_width * cols) / 2
         margin_top = (height - sticker_height * rows) / 2
@@ -729,11 +717,9 @@ def generate_qr_pdf():
             x = margin_left + col * sticker_width
             y = margin_top + (rows - 1 - row) * sticker_height
             
-            # Рамка наклейки (тонкая линия)
             c.setStrokeColorRGB(0.8, 0.8, 0.8)
             c.rect(x, y, sticker_width, sticker_height)
             
-            # QR-код
             qr_size = 12 * mm
             qr_x = x + 1.5 * mm
             qr_y = y + 2 * mm
@@ -741,7 +727,6 @@ def generate_qr_pdf():
             img = ImageReader(carpet.qr_code_path)
             c.drawImage(img, qr_x, qr_y, qr_size, qr_size)
             
-            # Информация
             text_x = qr_x + qr_size + 1 * mm
             text_y = y + sticker_height - 2.5 * mm
             
@@ -768,6 +753,7 @@ def generate_qr_pdf():
 
 @app.route('/generate_single_pages_pdf')
 def generate_single_pages_pdf():
+    """Генерирует PDF, где каждый QR-код на отдельной странице (30×20 мм)"""
     carpet_type_id = request.args.get('carpet_type_id', '')
     craftsman_id = request.args.get('craftsman_id', '')
     status = request.args.get('status', '')
@@ -807,6 +793,7 @@ def generate_single_pages_pdf():
             x_center = (width - sticker_width) / 2
             y_center = (height - sticker_height) / 2
             
+            c.setStrokeColorRGB(0.8, 0.8, 0.8)
             c.rect(x_center, y_center, sticker_width, sticker_height)
             
             qr_size = 12 * mm
@@ -835,14 +822,14 @@ def generate_single_pages_pdf():
             c.drawString(text_x, text_y - 7.5 * mm, f"{carpet.price} p")
             
             c.setFont("Helvetica", 6)
-            c.drawCentredString(width / 2, 15, f"Лист {i+1} из {len(carpets)}")
+            c.drawCentredString(width / 2, 10, f"Лист {i+1} из {len(carpets)}")
             
-            if i < len(carpets) - 1:
-                c.showPage()
+            c.save()
         
         buffer.seek(0)
         return send_file(buffer, mimetype='application/pdf', as_attachment=True, download_name='qr_single_pages.pdf')
     except Exception as e:
+        print(f"Ошибка: {e}")
         return f"Ошибка: {str(e)}", 500
 
 @app.route('/search')
