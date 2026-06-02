@@ -19,6 +19,7 @@ try:
     
     font_paths = [
         "C:/Windows/Fonts/arial.ttf",
+        "C:/Windows/Fonts/arialbd.ttf",
         "/System/Library/Fonts/Arial.ttf",
         "/System/Library/Fonts/Supplemental/Arial.ttf",
         os.path.join(os.path.dirname(__file__), 'LiberationSans-Regular.ttf'),
@@ -36,7 +37,7 @@ try:
                 print(f"[FONT] Ошибка: {e}")
     
     if not FONT_REGISTERED:
-        print("[FONT] ⚠️ Русский шрифт не найден")
+        print("[FONT] ⚠️ Русский шрифт не найден, используется стандартный")
 except ImportError:
     print("[FONT] ReportLab не установлен")
     FONT_REGISTERED = False
@@ -146,80 +147,95 @@ class ScanLog(db.Model):
 
 # ========== ФУНКЦИИ ПРОГНОЗИРОВАНИЯ ==========
 def forecast_sales(days=30):
-    scans = ScanLog.query.filter_by(result='success').all()
-    
-    if len(scans) < 7:
-        return {"error": "Недостаточно данных для прогноза (нужно минимум 7 дней)", "data": []}
-    
-    daily_counts = defaultdict(int)
-    for scan in scans:
-        date = scan.scanned_at[:10]
-        daily_counts[date] += 1
-    
-    dates = sorted(daily_counts.keys())
-    counts = [daily_counts[d] for d in dates]
-    
-    if len(counts) >= 7:
-        last_7 = counts[-7:]
-        avg = sum(last_7) / len(last_7)
-    else:
-        avg = sum(counts) / len(counts)
-    
-    forecast = [max(0, round(avg * (0.9 + (i * 0.02)))) for i in range(days)]
-    
-    weekday_weights = {0: 1.0, 1: 1.0, 2: 1.0, 3: 1.0, 4: 1.2, 5: 1.5, 6: 1.1}
-    today = datetime.now()
-    
-    forecast_with_season = []
-    forecast_dates = []
-    for i in range(days):
-        forecast_date = today + timedelta(days=i+1)
-        weight = weekday_weights.get(forecast_date.weekday(), 1.0)
-        value = round(forecast[i] * weight)
-        forecast_with_season.append(value)
-        forecast_dates.append(forecast_date.strftime("%Y-%m-%d"))
-    
-    return {
-        "method": "Скользящее среднее (7 дней)",
-        "data": forecast_with_season,
-        "dates": forecast_dates,
-        "total": sum(forecast_with_season),
-        "daily_avg": round(sum(forecast_with_season) / days, 1),
-        "historical_data": counts[-30:],
-        "historical_dates": dates[-30:]
-    }
+    try:
+        scans = ScanLog.query.filter_by(result='success').all()
+        
+        if len(scans) < 7:
+            return {"error": "Недостаточно данных для прогноза (нужно минимум 7 дней)", "data": []}
+        
+        daily_counts = defaultdict(int)
+        for scan in scans:
+            if scan.scanned_at:
+                date = scan.scanned_at[:10]
+                daily_counts[date] += 1
+        
+        dates = sorted(daily_counts.keys())
+        counts = [daily_counts[d] for d in dates]
+        
+        if len(counts) >= 7:
+            last_7 = counts[-7:]
+            avg = sum(last_7) / len(last_7)
+        else:
+            avg = sum(counts) / len(counts)
+        
+        forecast = [max(0, round(avg * (0.9 + (i * 0.02)))) for i in range(days)]
+        
+        weekday_weights = {0: 1.0, 1: 1.0, 2: 1.0, 3: 1.0, 4: 1.2, 5: 1.5, 6: 1.1}
+        today = datetime.now()
+        
+        forecast_with_season = []
+        forecast_dates = []
+        for i in range(days):
+            forecast_date = today + timedelta(days=i+1)
+            weight = weekday_weights.get(forecast_date.weekday(), 1.0)
+            value = round(forecast[i] * weight)
+            forecast_with_season.append(value)
+            forecast_dates.append(forecast_date.strftime("%Y-%m-%d"))
+        
+        return {
+            "method": "Скользящее среднее (7 дней)",
+            "data": forecast_with_season,
+            "dates": forecast_dates,
+            "total": sum(forecast_with_season),
+            "daily_avg": round(sum(forecast_with_season) / days, 1),
+            "historical_data": counts[-30:] if len(counts) > 0 else [],
+            "historical_dates": dates[-30:] if len(dates) > 0 else []
+        }
+    except Exception as e:
+        print(f"[FORECAST] Ошибка: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"error": f"Ошибка при формировании прогноза: {str(e)}", "data": []}
 
 def calculate_trend():
-    scans = ScanLog.query.filter_by(result='success').all()
-    
-    if len(scans) < 14:
-        return {"trend": "unknown", "percent": 0}
-    
-    now = datetime.now()
-    last_week = 0
-    prev_week = 0
-    
-    for scan in scans:
-        scan_date = datetime.strptime(scan.scanned_at[:10], "%Y-%m-%d")
-        days_diff = (now - scan_date).days
-        if days_diff <= 7:
-            last_week += 1
-        elif days_diff <= 14:
-            prev_week += 1
-    
-    if prev_week == 0:
-        percent = 100 if last_week > 0 else 0
-    else:
-        percent = round((last_week - prev_week) / prev_week * 100, 1)
-    
-    if percent > 10:
-        trend = "growing"
-    elif percent < -10:
-        trend = "declining"
-    else:
-        trend = "stable"
-    
-    return {"trend": trend, "percent": percent, "last_week": last_week, "prev_week": prev_week}
+    try:
+        scans = ScanLog.query.filter_by(result='success').all()
+        
+        if len(scans) < 14:
+            return {"trend": "unknown", "percent": 0, "last_week": 0, "prev_week": 0}
+        
+        now = datetime.now()
+        last_week = 0
+        prev_week = 0
+        
+        for scan in scans:
+            if scan.scanned_at:
+                try:
+                    scan_date = datetime.strptime(scan.scanned_at[:10], "%Y-%m-%d")
+                    days_diff = (now - scan_date).days
+                    if days_diff <= 7:
+                        last_week += 1
+                    elif days_diff <= 14:
+                        prev_week += 1
+                except:
+                    continue
+        
+        if prev_week == 0:
+            percent = 100 if last_week > 0 else 0
+        else:
+            percent = round((last_week - prev_week) / prev_week * 100, 1)
+        
+        if percent > 10:
+            trend = "growing"
+        elif percent < -10:
+            trend = "declining"
+        else:
+            trend = "stable"
+        
+        return {"trend": trend, "percent": percent, "last_week": last_week, "prev_week": prev_week}
+    except Exception as e:
+        print(f"[TREND] Ошибка: {e}")
+        return {"trend": "unknown", "percent": 0, "last_week": 0, "prev_week": 0}
 
 # ========== ФУНКЦИИ ==========
 def generate_qr_code(carpet_id, carpet_data):
@@ -275,7 +291,7 @@ with app.app_context():
             ("CARPET-0001", 1, 1, 15000, "scanned", "2025-06-01 14:30:00"),
             ("CARPET-0002", 2, 2, 12000, "created", None),
             ("CARPET-0003", 3, 1, 8000, "created", None),
-            ("CARPET-0004", 1, 3, 49, "created", None),
+            ("CARPET-0004", 1, 3, 49000, "created", None),
             ("CARPET-0005", 2, 2, 12000, "created", None),
             ("CARPET-0006", 3, 1, 8000, "created", None),
         ]
@@ -302,9 +318,16 @@ def index():
 
 @app.route('/forecast')
 def forecast_page():
-    forecast = forecast_sales(30)
-    trend = calculate_trend()
-    return render_template('forecast.html', forecast=forecast, trend=trend)
+    try:
+        forecast = forecast_sales(30)
+        trend = calculate_trend()
+        return render_template('forecast.html', forecast=forecast, trend=trend)
+    except Exception as e:
+        print(f"[FORECAST_PAGE] Ошибка: {e}")
+        import traceback
+        traceback.print_exc()
+        flash(f'Ошибка при загрузке прогноза: {str(e)}', 'error')
+        return render_template('forecast.html', forecast={"error": "Ошибка загрузки данных"}, trend={"trend": "unknown", "percent": 0})
 
 @app.route('/add_carpet', methods=['POST'])
 def add_carpet():
@@ -754,9 +777,10 @@ def generate_qr_pdf():
         traceback.print_exc()
         return f"Ошибка: {str(e)}", 500
 
+# ========== ФУНКЦИЯ: QR НА ВЕСЬ ЛИСТ А4 (уменьшена на 10%) ==========
 @app.route('/generate_single_pages_pdf')
 def generate_single_pages_pdf():
-    """Генерирует PDF, где каждый QR-код на отдельной странице (30×20 мм)"""
+    """Генерирует PDF, где каждый QR-код на весь лист А4 (уменьшено на 10%)"""
     carpet_type_id = request.args.get('carpet_type_id', '')
     craftsman_id = request.args.get('craftsman_id', '')
     status = request.args.get('status', '')
@@ -771,7 +795,7 @@ def generate_single_pages_pdf():
     
     carpets = query.all()
     
-    print(f"[SINGLE] Найдено ковров: {len(carpets)}")
+    print(f"[SINGLE_PAGES] Найдено ковров: {len(carpets)}")
     
     if not carpets:
         flash('Нет ковров для печати!', 'error')
@@ -782,70 +806,107 @@ def generate_single_pages_pdf():
         from reportlab.pdfgen import canvas
         from reportlab.lib.utils import ImageReader
         from reportlab.lib.units import mm
+        from PIL import Image
         
         buffer = io.BytesIO()
+        width, height = A4  # 595.27 x 841.89 points
         
+        # Уменьшаем на 10% (коэффициент 0.9)
+        scale_factor = 0.9
+        new_width = width * scale_factor
+        new_height = height * scale_factor
+        
+        # Центрируем уменьшенное изображение
+        x_offset = (width - new_width) / 2
+        y_offset = (height - new_height) / 2
+        
+        # Уменьшаем размер текстовой полосы на 10%
+        text_height = 63  # было 70, стало 63 (70 * 0.9)
+        
+        # Создаём PDF документ
         c = canvas.Canvas(buffer, pagesize=A4)
-        width, height = A4
-        
-        sticker_width = 30 * mm
-        sticker_height = 20 * mm
         
         for i, carpet in enumerate(carpets):
+            print(f"[SINGLE_PAGES] Обработка ковра {i+1}/{len(carpets)}: {carpet.carpet_id}")
+            
             if not carpet.qr_code_path or not os.path.exists(carpet.qr_code_path):
-                print(f"[SINGLE] QR не найден: {carpet.carpet_id}")
+                print(f"[SINGLE_PAGES] QR не найден: {carpet.carpet_id}")
                 continue
             
-            x_center = (width - sticker_width) / 2
-            y_center = (height - sticker_height) / 2
+            # === QR-код (уменьшен на 10% и по центру) ===
+            pil_img = Image.open(carpet.qr_code_path)
             
-            c.setStrokeColorRGB(0.8, 0.8, 0.8)
-            c.rect(x_center, y_center, sticker_width, sticker_height)
+            # Масштабируем QR с учётом уменьшения на 10%
+            img_width, img_height = pil_img.size
+            scale_x = new_width / img_width
+            scale_y = new_height / img_height
+            scale = max(scale_x, scale_y)
             
-            qr_size = 12 * mm
-            qr_x = x_center + 1.5 * mm
-            qr_y = y_center + 2 * mm
+            qr_new_width = img_width * scale
+            qr_new_height = img_height * scale
             
-            img = ImageReader(carpet.qr_code_path)
-            c.drawImage(img, qr_x, qr_y, qr_size, qr_size)
+            # Центрируем QR внутри уменьшенной области
+            qr_x_offset = x_offset + (new_width - qr_new_width) / 2
+            qr_y_offset = y_offset + (new_height - qr_new_height) / 2
             
-            text_x = qr_x + qr_size + 1 * mm
-            text_y = y_center + sticker_height - 2.5 * mm
+            temp_buffer = io.BytesIO()
+            pil_img_resized = pil_img.resize((int(qr_new_width), int(qr_new_height)), Image.Resampling.LANCZOS)
+            pil_img_resized.save(temp_buffer, format='PNG', dpi=(300, 300))
+            temp_buffer.seek(0)
             
+            img = ImageReader(temp_buffer)
+            c.drawImage(img, qr_x_offset, qr_y_offset, qr_new_width, qr_new_height, preserveAspectRatio=True)
+            
+            # === Белая полоса снизу для текста (уменьшена) ===
+            c.setFillColorRGB(1, 1, 1)
+            c.rect(0, 0, width, text_height, fill=1, stroke=0)
+            
+            # === Текст (уменьшенные шрифты на 10%) ===
             carpet_type = CarpetType.query.get(carpet.carpet_type_id)
             type_name = carpet_type.name if carpet_type else '-'
             craftsman = Craftsman.query.get(carpet.craftsman_id)
             craftsman_name = craftsman.name if craftsman else '-'
             
+            c.setFillColorRGB(0, 0, 0)
+            
+            # ID (было 18, стало 16)
+            c.setFont("Helvetica-Bold", 16)
+            c.drawCentredString(width / 2, text_height - 18, carpet.carpet_id)
+            
+            # Тип и швея (было 12, стало 11)
             if FONT_REGISTERED:
-                c.setFont("RussianFont", 5)
+                c.setFont("RussianFont", 11)
             else:
-                c.setFont("Helvetica", 5)
+                c.setFont("Helvetica", 11)
+            c.drawCentredString(width / 2, text_height - 36, f"{type_name} | {craftsman_name}")
             
-            c.drawString(text_x, text_y, f"{carpet.carpet_id}")
-            c.drawString(text_x, text_y - 2.5 * mm, f"{type_name}")
-            c.drawString(text_x, text_y - 5 * mm, f"{craftsman_name}")
-            c.drawString(text_x, text_y - 7.5 * mm, f"{carpet.price} p")
+            # Цена (было 14, стало 12)
+            c.setFont("Helvetica-Bold", 12)
+            price_str = f"{carpet.price:,} ₽".replace(',', ' ')
+            c.drawCentredString(width / 2, text_height - 52, price_str)
             
-            c.setFont("Helvetica", 6)
-            c.drawCentredString(width / 2, 10, f"Лист {i+1} из {len(carpets)}")
+            # Номер страницы (было 8, стало 7)
+            c.setFont("Helvetica", 7)
+            c.setFillColorRGB(0.5, 0.5, 0.5)
+            c.drawRightString(width - 20, 9, f"Страница {i+1} из {len(carpets)}")
             
-            if i < len(carpets) - 1:
-                c.showPage()
+            # Переход на следующую страницу
+            c.showPage()
         
+        # Сохраняем PDF
         c.save()
         buffer.seek(0)
         
-        print(f"[SINGLE] PDF создан, количество страниц: {len(carpets)}")
+        print(f"[SINGLE_PAGES] PDF создан, страниц: {len(carpets)}")
         
         return send_file(
             buffer, 
             mimetype='application/pdf', 
             as_attachment=True, 
-            download_name='qr_single_pages.pdf'
+            download_name=f'qr_full_page_{len(carpets)}_pages.pdf'
         )
     except Exception as e:
-        print(f"[SINGLE] Ошибка: {e}")
+        print(f"[SINGLE_PAGES] Ошибка: {e}")
         import traceback
         traceback.print_exc()
         return f"Ошибка: {str(e)}", 500
@@ -949,4 +1010,4 @@ if __name__ == '__main__':
     print(f"Открой в браузере: http://localhost:{port}")
     print("=" * 60)
     threading.Thread(target=open_browser, args=(port,), daemon=True).start()
-    app.run(host='0.0.0.0', port=port, debug=False) 
+    app.run(host='0.0.0.0', port=port, debug=False)
