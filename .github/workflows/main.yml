@@ -23,7 +23,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install pyinstaller
         cd web_app
-        pip install -r requirements.txt
+        pip install flask flask-sqlalchemy qrcode pillow reportlab requests urllib3 certifi chardet idna
     
     - name: Build with PyInstaller
       run: |
@@ -38,12 +38,25 @@ jobs:
           --hidden-import=reportlab.lib.utils `
           --hidden-import=requests `
           --hidden-import=urllib3 `
+          --hidden-import=urllib3.poolmanager `
+          --hidden-import=urllib3.response `
+          --hidden-import=urllib3.connection `
+          --hidden-import=urllib3.connectionpool `
+          --hidden-import=urllib3.util `
+          --hidden-import=urllib3.util.retry `
+          --hidden-import=urllib3.util.timeout `
+          --hidden-import=urllib3.util.url `
           --hidden-import=chardet `
+          --hidden-import=chardet.universaldetector `
           --hidden-import=idna `
           --hidden-import=certifi `
           --hidden-import=json `
           --hidden-import=datetime `
+          --hidden-import=collections `
+          --hidden-import=collections.abc `
           --collect-all=requests `
+          --collect-all=urllib3 `
+          --collect-all=chardet `
           app.py
     
     - name: Upload artifact
