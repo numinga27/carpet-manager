@@ -57,12 +57,16 @@
             margin-bottom: 20px;
         }
         .error-box {
-            background: #fee2e2;
-            padding: 15px;
+            background: #fff3cd;
+            padding: 20px;
             border-radius: 10px;
             margin-bottom: 20px;
-            color: #e74c3c;
-            border-left: 4px solid #e74c3c;
+            color: #856404;
+            border-left: 4px solid #ffc107;
+        }
+        .error-box h3 {
+            margin-bottom: 10px;
+            color: #856404;
         }
         .back-btn {
             display: inline-block;
@@ -72,6 +76,18 @@
             color: white;
             text-decoration: none;
             border-radius: 8px;
+        }
+        .demo-data-btn {
+            display: inline-block;
+            margin-top: 20px;
+            margin-left: 10px;
+            padding: 10px 20px;
+            background: #27ae60;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
         }
         @media (max-width: 768px) {
             .stats-grid { grid-template-columns: 1fr; }
@@ -88,11 +104,19 @@
     <div class="content">
         {% if forecast and forecast.error %}
             <div class="error-box">
-                ⚠️ {{ forecast.error }}
-                <br><br>
-                <small>Для точного прогноза необходимо минимум 7 дней сканирований. Продолжайте сканировать ковры, и данные появятся.</small>
+                <h3>⚠️ Ошибка доступа к базе данных</h3>
+                <p>Не удалось получить данные для прогноза. Это может быть связано с ограничениями доступа к файлам в программе.</p>
+                <p><strong>Решение:</strong> Убедитесь, что программа имеет доступ к папке с данными. Прогноз будет работать после нескольких сканирований ковров.</p>
+                <br>
+                <small>Техническая информация: {{ forecast.error[:200] if forecast.error else 'Нет данных' }}</small>
             </div>
-        {% elif forecast and not forecast.error %}
+        {% elif forecast and forecast.no_data %}
+            <div class="error-box">
+                <h3>📊 Недостаточно данных для прогноза</h3>
+                <p>{{ forecast.message|default('Для точного прогноза необходимо минимум 7 дней сканирований. Продолжайте сканировать ковры, и данные появятся.') }}</p>
+                <p>📌 <strong>Совет:</strong> Добавьте несколько тестовых ковров и отсканируйте их, чтобы увидеть прогноз.</p>
+            </div>
+        {% elif forecast and forecast.data and forecast.data|length > 0 %}
             <!-- Статистика -->
             <div class="stats-grid">
                 <div class="stat-card">
@@ -119,12 +143,10 @@
             </div>
             
             <!-- График прогноза -->
-            {% if forecast.data and forecast.data|length > 0 %}
             <div class="chart-container">
                 <h3>📊 Прогноз на 30 дней</h3>
                 <canvas id="forecastChart" width="800" height="300"></canvas>
             </div>
-            {% endif %}
             
             <!-- Исторические данные -->
             {% if forecast.historical_data and forecast.historical_data|length > 0 %}
@@ -142,68 +164,79 @@
             </div>
         {% else %}
             <div class="error-box">
-                ⚠️ Нет данных для прогноза
-                <br><br>
-                <small>Для отображения прогноза необходимо добавить ковры и отсканировать их.</small>
+                <h3>📊 Нет данных для прогноза</h3>
+                <p>Добавьте ковры и отсканируйте их, чтобы увидеть прогноз продаж.</p>
+                <p>📌 <strong>Совет:</strong> Используйте USB-сканер для отметки готовых ковров.</p>
             </div>
         {% endif %}
         
-        <a href="/" class="back-btn">← На главную</a>
+        <div>
+            <a href="/" class="back-btn">← На главную</a>
+            <button onclick="location.reload()" class="demo-data-btn">🔄 Обновить</button>
+        </div>
     </div>
 </div>
 
 <script>
-    {% if forecast and not forecast.error and forecast.data and forecast.data|length > 0 %}
+    {% if forecast and not forecast.error and not forecast.no_data and forecast.data and forecast.data|length > 0 %}
     // График прогноза
     const forecastCtx = document.getElementById('forecastChart');
     if (forecastCtx) {
-        new Chart(forecastCtx.getContext('2d'), {
-            type: 'line',
-            data: {
-                labels: {{ forecast.dates|tojson|default('[]') }},
-                datasets: [{
-                    label: 'Прогноз продаж (шт.)',
-                    data: {{ forecast.data|tojson|default('[]') }},
-                    borderColor: '#667eea',
-                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                    fill: true,
-                    tension: 0.3,
-                    pointRadius: 3,
-                    pointBackgroundColor: '#667eea'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: true,
-                plugins: {
-                    legend: { position: 'top' },
-                    tooltip: { callbacks: { label: (ctx) => `${ctx.raw} шт.` } }
+        try {
+            new Chart(forecastCtx.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: {{ forecast.dates|tojson|default('[]') }},
+                    datasets: [{
+                        label: 'Прогноз продаж (шт.)',
+                        data: {{ forecast.data|tojson|default('[]') }},
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 3,
+                        pointBackgroundColor: '#667eea'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { position: 'top' },
+                        tooltip: { callbacks: { label: (ctx) => `${ctx.raw} шт.` } }
+                    }
                 }
-            }
-        });
+            });
+        } catch(e) {
+            console.error('Chart error:', e);
+        }
     }
     
     // График истории (если есть данные)
     {% if forecast.historical_data and forecast.historical_data|length > 0 %}
     const historyCtx = document.getElementById('historyChart');
     if (historyCtx) {
-        new Chart(historyCtx.getContext('2d'), {
-            type: 'bar',
-            data: {
-                labels: {{ forecast.historical_dates|tojson|default('[]') }},
-                datasets: [{
-                    label: 'Продажи (шт.)',
-                    data: {{ forecast.historical_data|tojson|default('[]') }},
-                    backgroundColor: '#27ae60',
-                    borderRadius: 5
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: true,
-                plugins: { legend: { position: 'top' } }
-            }
-        });
+        try {
+            new Chart(historyCtx.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: {{ forecast.historical_dates|tojson|default('[]') }},
+                    datasets: [{
+                        label: 'Продажи (шт.)',
+                        data: {{ forecast.historical_data|tojson|default('[]') }},
+                        backgroundColor: '#27ae60',
+                        borderRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { position: 'top' } }
+                }
+            });
+        } catch(e) {
+            console.error('Chart error:', e);
+        }
     }
     {% endif %}
     {% endif %}

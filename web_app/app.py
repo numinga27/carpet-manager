@@ -148,16 +148,51 @@ class ScanLog(db.Model):
 # ========== ФУНКЦИИ ПРОГНОЗИРОВАНИЯ ==========
 def forecast_sales(days=30):
     try:
-        scans = ScanLog.query.filter_by(result='success').all()
+        # Используем try-except для обертки всего запроса
+        try:
+            scans = ScanLog.query.filter_by(result='success').all()
+        except Exception as db_error:
+            print(f"[FORECAST] Ошибка БД: {db_error}")
+            # Возвращаем пустые данные вместо ошибки
+            return {
+                "error": None, 
+                "data": [],
+                "total": 0,
+                "daily_avg": 0,
+                "historical_data": [],
+                "historical_dates": [],
+                "dates": [],
+                "no_data": True
+            }
         
         if len(scans) < 7:
-            return {"error": "Недостаточно данных для прогноза (нужно минимум 7 дней)", "data": []}
+            return {
+                "error": None,
+                "no_data": True,
+                "message": "Недостаточно данных для прогноза (нужно минимум 7 дней)",
+                "data": [],
+                "total": 0,
+                "daily_avg": 0
+            }
         
         daily_counts = defaultdict(int)
         for scan in scans:
             if scan.scanned_at:
-                date = scan.scanned_at[:10]
-                daily_counts[date] += 1
+                try:
+                    date = scan.scanned_at[:10]
+                    daily_counts[date] += 1
+                except:
+                    continue
+        
+        if not daily_counts:
+            return {
+                "error": None,
+                "no_data": True,
+                "message": "Нет данных о сканированиях",
+                "data": [],
+                "total": 0,
+                "daily_avg": 0
+            }
         
         dates = sorted(daily_counts.keys())
         counts = [daily_counts[d] for d in dates]
@@ -183,6 +218,8 @@ def forecast_sales(days=30):
             forecast_dates.append(forecast_date.strftime("%Y-%m-%d"))
         
         return {
+            "error": None,
+            "no_data": False,
             "method": "Скользящее среднее (7 дней)",
             "data": forecast_with_season,
             "dates": forecast_dates,
@@ -195,11 +232,21 @@ def forecast_sales(days=30):
         print(f"[FORECAST] Ошибка: {e}")
         import traceback
         traceback.print_exc()
-        return {"error": f"Ошибка при формировании прогноза: {str(e)}", "data": []}
+        return {
+            "error": str(e),
+            "no_data": True,
+            "data": [],
+            "total": 0,
+            "daily_avg": 0
+        }
 
 def calculate_trend():
     try:
-        scans = ScanLog.query.filter_by(result='success').all()
+        try:
+            scans = ScanLog.query.filter_by(result='success').all()
+        except Exception as db_error:
+            print(f"[TREND] Ошибка БД: {db_error}")
+            return {"trend": "unknown", "percent": 0, "last_week": 0, "prev_week": 0}
         
         if len(scans) < 14:
             return {"trend": "unknown", "percent": 0, "last_week": 0, "prev_week": 0}
@@ -326,8 +373,9 @@ def forecast_page():
         print(f"[FORECAST_PAGE] Ошибка: {e}")
         import traceback
         traceback.print_exc()
-        flash(f'Ошибка при загрузке прогноза: {str(e)}', 'error')
-        return render_template('forecast.html', forecast={"error": "Ошибка загрузки данных"}, trend={"trend": "unknown", "percent": 0})
+        return render_template('forecast.html', 
+                             forecast={"error": str(e), "no_data": True}, 
+                             trend={"trend": "unknown", "percent": 0})
 
 @app.route('/add_carpet', methods=['POST'])
 def add_carpet():
@@ -727,27 +775,21 @@ def generate_qr_pdf():
             if not carpet.qr_code_path or not os.path.exists(carpet.qr_code_path):
                 continue
             
-            # Загружаем QR-код и увеличиваем его разрешение
             pil_img = Image.open(carpet.qr_code_path)
-            # Увеличиваем размер изображения до размеров страницы
             pil_img_resized = pil_img.resize((int(width), int(height)), Image.Resampling.LANCZOS)
             
-            # Сохраняем в временный буфер
             temp_buffer = io.BytesIO()
             pil_img_resized.save(temp_buffer, format='PNG')
             temp_buffer.seek(0)
             
             c = canvas.Canvas(buffer, pagesize=A4)
             
-            # Рисуем растянутый QR-код
             img = ImageReader(temp_buffer)
             c.drawImage(img, 0, 0, width, height)
             
-            # Белая полоса внизу для текста
             c.setFillColorRGB(1, 1, 1)
             c.rect(0, 0, width, 55, fill=1, stroke=0)
             
-            # Текст
             c.setFillColorRGB(0, 0, 0)
             c.setFont("Helvetica-Bold", 14)
             
@@ -809,21 +851,17 @@ def generate_single_pages_pdf():
         from PIL import Image
         
         buffer = io.BytesIO()
-        width, height = A4  # 595.27 x 841.89 points
+        width, height = A4
         
-        # Уменьшаем на 10% (коэффициент 0.9)
         scale_factor = 0.9
         new_width = width * scale_factor
         new_height = height * scale_factor
         
-        # Центрируем уменьшенное изображение
         x_offset = (width - new_width) / 2
         y_offset = (height - new_height) / 2
         
-        # Уменьшаем размер текстовой полосы на 10%
-        text_height = 63  # было 70, стало 63 (70 * 0.9)
+        text_height = 63
         
-        # Создаём PDF документ
         c = canvas.Canvas(buffer, pagesize=A4)
         
         for i, carpet in enumerate(carpets):
@@ -833,10 +871,8 @@ def generate_single_pages_pdf():
                 print(f"[SINGLE_PAGES] QR не найден: {carpet.carpet_id}")
                 continue
             
-            # === QR-код (уменьшен на 10% и по центру) ===
             pil_img = Image.open(carpet.qr_code_path)
             
-            # Масштабируем QR с учётом уменьшения на 10%
             img_width, img_height = pil_img.size
             scale_x = new_width / img_width
             scale_y = new_height / img_height
@@ -845,7 +881,6 @@ def generate_single_pages_pdf():
             qr_new_width = img_width * scale
             qr_new_height = img_height * scale
             
-            # Центрируем QR внутри уменьшенной области
             qr_x_offset = x_offset + (new_width - qr_new_width) / 2
             qr_y_offset = y_offset + (new_height - qr_new_height) / 2
             
@@ -857,11 +892,9 @@ def generate_single_pages_pdf():
             img = ImageReader(temp_buffer)
             c.drawImage(img, qr_x_offset, qr_y_offset, qr_new_width, qr_new_height, preserveAspectRatio=True)
             
-            # === Белая полоса снизу для текста (уменьшена) ===
             c.setFillColorRGB(1, 1, 1)
             c.rect(0, 0, width, text_height, fill=1, stroke=0)
             
-            # === Текст (уменьшенные шрифты на 10%) ===
             carpet_type = CarpetType.query.get(carpet.carpet_type_id)
             type_name = carpet_type.name if carpet_type else '-'
             craftsman = Craftsman.query.get(carpet.craftsman_id)
@@ -869,31 +902,25 @@ def generate_single_pages_pdf():
             
             c.setFillColorRGB(0, 0, 0)
             
-            # ID (было 18, стало 16)
             c.setFont("Helvetica-Bold", 16)
             c.drawCentredString(width / 2, text_height - 18, carpet.carpet_id)
             
-            # Тип и швея (было 12, стало 11)
             if FONT_REGISTERED:
                 c.setFont("RussianFont", 11)
             else:
                 c.setFont("Helvetica", 11)
             c.drawCentredString(width / 2, text_height - 36, f"{type_name} | {craftsman_name}")
             
-            # Цена (было 14, стало 12)
             c.setFont("Helvetica-Bold", 12)
             price_str = f"{carpet.price:,} ₽".replace(',', ' ')
             c.drawCentredString(width / 2, text_height - 52, price_str)
             
-            # Номер страницы (было 8, стало 7)
             c.setFont("Helvetica", 7)
             c.setFillColorRGB(0.5, 0.5, 0.5)
             c.drawRightString(width - 20, 9, f"Страница {i+1} из {len(carpets)}")
             
-            # Переход на следующую страницу
             c.showPage()
         
-        # Сохраняем PDF
         c.save()
         buffer.seek(0)
         
@@ -991,6 +1018,32 @@ def stats():
         carpet_types=CarpetType.query.all(), selected_craftsman=craftsman_id,
         selected_type=carpet_type_id, selected_status=status,
         scan_date_from=scan_date_from, scan_date_to=scan_date_to)
+
+# ========== ДИАГНОСТИЧЕСКИЙ МАРШРУТ ==========
+@app.route('/check_db')
+def check_db():
+    """Диагностический маршрут для проверки БД"""
+    try:
+        db.session.execute('SELECT 1')
+        
+        carpet_count = Carpet.query.count()
+        scan_count = ScanLog.query.count()
+        
+        return jsonify({
+            'status': 'ok',
+            'database_path': DB_PATH,
+            'data_folder': DATA_FOLDER,
+            'carpets_count': carpet_count,
+            'scans_count': scan_count,
+            'file_exists': os.path.exists(DB_PATH),
+            'file_size': os.path.getsize(DB_PATH) if os.path.exists(DB_PATH) else 0
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'error': str(e),
+            'database_path': DB_PATH
+        }), 500
 
 # ========== ЗАПУСК ==========
 def open_browser(port):
