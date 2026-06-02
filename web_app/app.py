@@ -275,7 +275,9 @@ with app.app_context():
             ("CARPET-0001", 1, 1, 15000, "scanned", "2025-06-01 14:30:00"),
             ("CARPET-0002", 2, 2, 12000, "created", None),
             ("CARPET-0003", 3, 1, 8000, "created", None),
-            ("CARPET-0004", 1, 3, 49, "created", None)
+            ("CARPET-0004", 1, 3, 49, "created", None),
+            ("CARPET-0005", 2, 2, 12000, "created", None),
+            ("CARPET-0006", 3, 1, 8000, "created", None),
         ]
         for qr, type_id, cm_id, price, status, scanned_at in test_data:
             carpet = Carpet(carpet_id=qr, carpet_type_id=type_id, craftsman_id=cm_id, 
@@ -698,46 +700,39 @@ def generate_qr_pdf():
         
         buffer = io.BytesIO()
         
-        # Размер наклейки 30×20 мм
-        sticker_width = 30 * mm
-        sticker_height = 20 * mm
-        cols = 7  # 7 наклеек в строку
-        rows = 5  # 5 строк на листе
-        stickers_per_page = cols * rows  # 35 наклеек на страницу
-        
-        # Поля для центрирования на листе A4 (210×297 мм)
         page_width = 210 * mm
         page_height = 297 * mm
+        
+        sticker_width = 30 * mm
+        sticker_height = 20 * mm
+        cols = 7
+        rows = 5
+        stickers_per_page = cols * rows
         
         margin_left = (page_width - sticker_width * cols) / 2
         margin_top = (page_height - sticker_height * rows) / 2
         
-        # Создаём первую страницу
         c = canvas.Canvas(buffer, pagesize=A4)
         
-        for i, carpet in enumerate(carpets):
+        for idx, carpet in enumerate(carpets):
             if not carpet.qr_code_path or not os.path.exists(carpet.qr_code_path):
                 continue
             
-            # Определяем позицию на текущей странице
-            pos_on_page = i % stickers_per_page
+            pos_on_page = idx % stickers_per_page
+            
+            if idx > 0 and pos_on_page == 0:
+                c.showPage()
+                c = canvas.Canvas(buffer, pagesize=A4)
+            
             col = pos_on_page % cols
             row = pos_on_page // cols
             
-            # Если это первая наклейка на новой странице (не первая страница)
-            if i > 0 and pos_on_page == 0:
-                c.showPage()  # Сохраняем текущую страницу и создаём новую
-                c = canvas.Canvas(buffer, pagesize=A4)
-            
-            # Вычисляем координаты наклейки
             x = margin_left + col * sticker_width
             y = margin_top + (rows - 1 - row) * sticker_height
             
-            # Рамка наклейки
-            c.setStrokeColorRGB(0.8, 0.8, 0.8)
+            c.setStrokeColorRGB(0.7, 0.7, 0.7)
             c.rect(x, y, sticker_width, sticker_height)
             
-            # QR-код (12×12 мм)
             qr_size = 12 * mm
             qr_x = x + 1.5 * mm
             qr_y = y + 2 * mm
@@ -745,7 +740,6 @@ def generate_qr_pdf():
             img = ImageReader(carpet.qr_code_path)
             c.drawImage(img, qr_x, qr_y, qr_size, qr_size)
             
-            # Текстовая информация
             text_x = qr_x + qr_size + 1 * mm
             text_y = y + sticker_height - 2.5 * mm
             
@@ -754,10 +748,9 @@ def generate_qr_pdf():
             craftsman = Craftsman.query.get(carpet.craftsman_id)
             craftsman_name = craftsman.name if craftsman else '-'
             
-            # Используем русский шрифт, если зарегистрирован
-            try:
+            if FONT_REGISTERED:
                 c.setFont("RussianFont", 5)
-            except:
+            else:
                 c.setFont("Helvetica", 5)
             
             c.drawString(text_x, text_y, f"{carpet.carpet_id}")
@@ -768,7 +761,12 @@ def generate_qr_pdf():
         c.save()
         buffer.seek(0)
         
-        return send_file(buffer, mimetype='application/pdf', as_attachment=True, download_name='qr_stickers_30x20.pdf')
+        return send_file(
+            buffer, 
+            mimetype='application/pdf', 
+            as_attachment=True, 
+            download_name='qr_stickers.pdf'
+        )
     except Exception as e:
         print(f"Ошибка: {e}")
         return f"Ошибка: {str(e)}", 500
@@ -790,6 +788,8 @@ def generate_single_pages_pdf():
     
     carpets = query.all()
     
+    print(f"[SINGLE] Найдено ковров: {len(carpets)}")
+    
     if not carpets:
         flash('Нет ковров для печати!', 'error')
         return redirect(url_for('mass_print_qr'))
@@ -802,15 +802,16 @@ def generate_single_pages_pdf():
         
         buffer = io.BytesIO()
         
+        c = canvas.Canvas(buffer, pagesize=A4)
+        width, height = A4
+        
+        sticker_width = 30 * mm
+        sticker_height = 20 * mm
+        
         for i, carpet in enumerate(carpets):
             if not carpet.qr_code_path or not os.path.exists(carpet.qr_code_path):
+                print(f"[SINGLE] QR не найден: {carpet.carpet_id}")
                 continue
-            
-            c = canvas.Canvas(buffer, pagesize=A4)
-            width, height = A4
-            
-            sticker_width = 30 * mm
-            sticker_height = 20 * mm
             
             x_center = (width - sticker_width) / 2
             y_center = (height - sticker_height) / 2
@@ -846,12 +847,24 @@ def generate_single_pages_pdf():
             c.setFont("Helvetica", 6)
             c.drawCentredString(width / 2, 10, f"Лист {i+1} из {len(carpets)}")
             
-            c.save()
+            if i < len(carpets) - 1:
+                c.showPage()
         
+        c.save()
         buffer.seek(0)
-        return send_file(buffer, mimetype='application/pdf', as_attachment=True, download_name='qr_single_pages.pdf')
+        
+        print(f"[SINGLE] PDF создан, количество страниц: {len(carpets)}")
+        
+        return send_file(
+            buffer, 
+            mimetype='application/pdf', 
+            as_attachment=True, 
+            download_name='qr_single_pages.pdf'
+        )
     except Exception as e:
-        print(f"Ошибка: {e}")
+        print(f"[SINGLE] Ошибка: {e}")
+        import traceback
+        traceback.print_exc()
         return f"Ошибка: {str(e)}", 500
 
 @app.route('/search')
