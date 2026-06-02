@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Настройки маркетплейсов</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            text-align: center;
+        }
+        .content { padding: 25px; }
+        .settings-card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .checkbox-group input {
+            width: auto;
+        }
+        button {
+            padding: 12px 24px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .info-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .back-btn {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 20px;
+            background: #95a5a6;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>⚙️ Настройки маркетплейсов</h1>
+        <p>Подключение к Ozon и Wildberries</p>
+    </div>
+    
+    <div class="content">
+        <form method="POST">
+            <!-- Wildberries -->
+            <div class="settings-card">
+                <h3>🟣 Wildberries</h3>
+                <div class="checkbox-group">
+                    <input type="checkbox" name="wb_active" id="wb_active" {% if wb_settings and wb_settings.is_active %}checked{% endif %}>
+                    <label for="wb_active">Включить синхронизацию с Wildberries</label>
+                </div>
+                <div class="form-group">
+                    <label>API-ключ Wildberries:</label>
+                    <input type="text" name="wb_api_key" value="{{ wb_settings.api_key if wb_settings else '' }}" 
+                           placeholder="WB_API_TOKEN">
+                    <div class="info-text">
+                        🔑 Как получить: Личный кабинет WB → Настройки → Доступ к API → Создать ключ
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Ozon -->
+            <div class="settings-card">
+                <h3>🟠 Ozon</h3>
+                <div class="checkbox-group">
+                    <input type="checkbox" name="ozon_active" id="ozon_active" {% if ozon_settings and ozon_settings.is_active %}checked{% endif %}>
+                    <label for="ozon_active">Включить синхронизацию с Ozon</label>
+                </div>
+                <div class="form-group">
+                    <label>Client ID Ozon:</label>
+                    <input type="text" name="ozon_client_id" value="{{ ozon_settings.client_id if ozon_settings else '' }}">
+                    <div class="info-text">
+                        🔑 Где взять: Личный кабинет Ozon → Настройки → Интеграция → API-ключи
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>API-ключ Ozon:</label>
+                    <input type="text" name="ozon_api_key" value="{{ ozon_settings.api_key if ozon_settings else '' }}">
+                </div>
+            </div>
+            
+            <button type="submit">💾 Сохранить настройки</button>
+        </form>
+        
+        <a href="/" class="back-btn">← На главную</a>
+    </div>
+</div>
+</body>
+</html>

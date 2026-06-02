@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Заказы с маркетплейсов</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            text-align: center;
+        }
+        .content { padding: 25px; }
+        .sync-btn {
+            background: #27ae60;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+        .order-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 15px;
+            background: #f8f9fa;
+        }
+        .order-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+        .marketplace-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .marketplace-wb { background: #9b59b6; color: white; }
+        .marketplace-ozon { background: #e67e22; color: white; }
+        .status-new { background: #3498db; }
+        .status-processing { background: #f39c12; }
+        .status-ready { background: #27ae60; }
+        .status-shipped { background: #95a5a6; }
+        .order-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .link-form {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        select, button {
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        .back-btn {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 20px;
+            background: #95a5a6;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>📦 Заказы с маркетплейсов</h1>
+        <p>Ozon и Wildberries</p>
+    </div>
+    
+    <div class="content">
+        <button class="sync-btn" onclick="window.location.href='/sync_orders'">
+            🔄 Синхронизировать заказы
+        </button>
+        
+        <h3>Активные заказы ({{ orders|length }})</h3>
+        
+        {% for order in orders %}
+        <div class="order-card">
+            <div class="order-header">
+                <div>
+                    <span class="marketplace-badge marketplace-{{ order.marketplace }}">
+                        {% if order.marketplace == 'wb' %}Wildberries{% else %}Ozon{% endif %}
+                    </span>
+                    <strong> №{{ order.order_id }}</strong>
+                </div>
+                <span class="status-badge status-{{ order.status }}">
+                    {% if order.status == 'new' %}🆕 Новый
+                    {% elif order.status == 'processing' %}⚙️ В обработке
+                    {% elif order.status == 'ready' %}✅ Готов к отгрузке
+                    {% else %}🚚 Отправлен{% endif %}
+                </span>
+            </div>
+            
+            <div class="order-info">
+                <div>👤 {{ order.customer_name or 'Не указан' }}</div>
+                <div>📞 {{ order.customer_phone or 'Не указан' }}</div>
+                <div>💰 {{ order.price }} ₽</div>
+                <div>📅 {{ order.ordered_at[:10] if order.ordered_at else '-' }}</div>
+            </div>
+            <div>📍 {{ order.delivery_address or 'Адрес не указан' }}</div>
+            
+            {% if order.carpet_id %}
+                <div style="margin-top: 10px; color: #27ae60;">
+                    ✅ Привязан ковёр: <strong>{{ order.carpet_id }}</strong>
+                </div>
+            {% else %}
+                <form method="POST" action="/link_order_to_carpet" class="link-form">
+                    <input type="hidden" name="order_id" value="{{ order.id }}">
+                    <select name="carpet_id" required>
+                        <option value="">Выберите ковёр</option>
+                        {% for carpet in carpets %}
+                        <option value="{{ carpet.carpet_id }}">{{ carpet.carpet_id }} - {{ carpet.carpet_type_ref.name }} - {{ carpet.price }}₽</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" style="background: #27ae60; color: white;">🔗 Привязать</button>
+                </form>
+            {% endif %}
+            
+            {% if order.carpet_id and order.status != 'shipped' %}
+            <form method="POST" action="/update_order_status" class="link-form" style="margin-top: 10px;">
+                <input type="hidden" name="order_id" value="{{ order.id }}">
+                <select name="status">
+                    <option value="processing" {% if order.status == 'processing' %}selected{% endif %}>В обработке</option>
+                    <option value="ready" {% if order.status == 'ready' %}selected{% endif %}>Готов к отгрузке</option>
+                    <option value="shipped" {% if order.status == 'shipped' %}selected{% endif %}>Отправлен</option>
+                </select>
+                <button type="submit" style="background: #3498db; color: white;">📤 Обновить статус</button>
+            </form>
+            {% endif %}
+        </div>
+        {% else %}
+        <p>Нет активных заказов</p>
+        {% endfor %}
+        
+        <a href="/" class="back-btn">← На главную</a>
+    </div>
+</div>
+</body>
+</html>

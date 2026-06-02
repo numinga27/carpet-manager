@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Аккаунты маркетплейсов</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            text-align: center;
+        }
+        .content { padding: 25px; }
+        
+        .add-btn {
+            background: #27ae60;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        
+        .sync-all-btn {
+            background: #3498db;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            margin-bottom: 20px;
+            margin-left: 10px;
+            font-size: 14px;
+        }
+        
+        .account-card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 5px solid;
+        }
+        .account-card.wb { border-left-color: #9b59b6; }
+        .account-card.ozon { border-left-color: #e67e22; }
+        
+        .account-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        .account-name {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .account-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            color: white;
+        }
+        .badge-wb { background: #9b59b6; }
+        .badge-ozon { background: #e67e22; }
+        .badge-active { background: #27ae60; }
+        .badge-inactive { background: #95a5a6; }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 15px;
+            margin: 15px 0;
+        }
+        .stat-item {
+            text-align: center;
+            background: white;
+            padding: 10px;
+            border-radius: 10px;
+        }
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .stat-label {
+            font-size: 11px;
+            color: #666;
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .btn-edit {
+            background: #f39c12;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .btn-delete {
+            background: #e74c3c;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .btn-sync {
+            background: #3498db;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        
+        .back-btn {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 20px;
+            background: #95a5a6;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+        }
+        
+        .total-stats {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            text-align: center;
+        }
+        
+        @media (max-width: 768px) {
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .total-stats { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>🏪 Аккаунты маркетплейсов</h1>
+        <p>Управление подключениями к Ozon и Wildberries</p>
+    </div>
+    
+    <div class="content">
+        <button class="add-btn" onclick="openAddModal()">➕ Добавить аккаунт</button>
+        <button class="sync-all-btn" onclick="syncAllAccounts()">🔄 Синхронизировать все аккаунты</button>
+        
+        <!-- Общая статистика -->
+        <div class="total-stats">
+            <div><h3>{{ total_stats.new }}</h3><small>🆕 Новые</small></div>
+            <div><h3>{{ total_stats.processing }}</h3><small>⚙️ В обработке</small></div>
+            <div><h3>{{ total_stats.ready }}</h3><small>✅ Готовы</small></div>
+            <div><h3>{{ total_stats.total_revenue|round|int }} ₽</h3><small>💰 Выручка</small></div>
+        </div>
+        
+        <!-- Список аккаунтов -->
+        {% for account in accounts %}
+        <div class="account-card {{ account.marketplace }}">
+            <div class="account-header">
+                <div>
+                    <span class="account-name">{{ account.account_name }}</span>
+                    <span class="account-badge badge-{{ account.marketplace }}">{{ account.marketplace|upper }}</span>
+                    <span class="account-badge {% if account.is_active %}badge-active{% else %}badge-inactive{% endif %}">
+                        {% if account.is_active %}Активен{% else %}Неактивен{% endif %}
+                    </span>
+                </div>
+                <div style="font-size: 12px; color: #888;">
+                    Логин: {{ account.account_login or '—' }} | 
+                    Последняя синхр.: {{ account.last_sync or 'никогда' }}
+                </div>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-number" style="color: #27ae60;">{{ account.stats.new }}</div>
+                    <div class="stat-label">🆕 Новые</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" style="color: #f39c12;">{{ account.stats.processing }}</div>
+                    <div class="stat-label">⚙️ В обработке</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" style="color: #3498db;">{{ account.stats.ready }}</div>
+                    <div class="stat-label">✅ Готовы</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" style="color: #95a5a6;">{{ account.stats.shipped }}</div>
+                    <div class="stat-label">🚚 Отправлены</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">{{ account.stats.total }}</div>
+                    <div class="stat-label">📦 Всего</div>
+                </div>
+            </div>
+            
+            <div class="btn-group">
+                <button class="btn-sync" onclick="syncAccount({{ account.id }})">🔄 Синхронизировать</button>
+                <button class="btn-edit" onclick="window.location.href='/edit_marketplace_account/{{ account.id }}'">✏️ Редактировать</button>
+                <button class="btn-delete" onclick="deleteAccount({{ account.id }})">🗑️ Удалить</button>
+            </div>
+        </div>
+        {% else %}
+        <p style="text-align: center; color: #999; padding: 40px;">Нет добавленных аккаунтов. Нажмите "Добавить аккаунт" чтобы начать.</p>
+        {% endfor %}
+        
+        <a href="/" class="back-btn">← На главную</a>
+    </div>
+</div>
+
+<!-- Модальное окно добавления аккаунта -->
+<div id="addModal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000;">
+    <div style="background: white; padding: 25px; border-radius: 20px; width: 500px; max-width: 90%;">
+        <h2 style="margin-bottom: 20px;">➕ Добавить аккаунт</h2>
+        <form action="/add_marketplace_account" method="POST">
+            <div class="form-group">
+                <label>Маркетплейс *</label>
+                <select name="marketplace" required style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
+                    <option value="wb">Wildberries</option>
+                    <option value="ozon">Ozon</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Название аккаунта *</label>
+                <input type="text" name="account_name" required placeholder="Например: Основной WB" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
+            </div>
+            <div class="form-group">
+                <label>Логин/Название магазина</label>
+                <input type="text" name="account_login" placeholder="Название магазина" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
+            </div>
+            <div class="form-group">
+                <label>API-ключ *</label>
+                <input type="text" name="api_key" required placeholder="API-ключ" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
+                <small style="color: #666;">Как получить: личный кабинет → Настройки → API</small>
+            </div>
+            <div class="form-group">
+                <label>Client ID (только для Ozon)</label>
+                <input type="text" name="client_id" placeholder="Client ID" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
+            </div>
+            <div class="form-group">
+                <label style="display: flex; align-items: center; gap: 10px;">
+                    <input type="checkbox" name="is_active" checked> Активен
+                </label>
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                <button type="submit" style="background: #27ae60; color: white; padding: 10px 20px; border: none; border-radius: 8px;">💾 Сохранить</button>
+                <button type="button" onclick="closeModal()" style="background: #95a5a6; color: white; padding: 10px 20px; border: none; border-radius: 8px;">❌ Отмена</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openAddModal() {
+        document.getElementById('addModal').style.display = 'flex';
+    }
+    
+    function closeModal() {
+        document.getElementById('addModal').style.display = 'none';
+    }
+    
+    async function syncAccount(accountId) {
+        const btn = event.target;
+        btn.textContent = '⏳ Синхронизация...';
+        btn.disabled = true;
+        
+        try {
+            const response = await fetch(`/sync_account/${accountId}`);
+            const result = await response.json();
+            
+            if (result.success) {
+                alert(`Синхронизировано ${result.new_orders} новых заказов`);
+                window.location.reload();
+            } else {
+                alert('Ошибка синхронизации: ' + result.error);
+            }
+        } catch(e) {
+            alert('Ошибка соединения');
+        } finally {
+            btn.textContent = '🔄 Синхронизировать';
+            btn.disabled = false;
+        }
+    }
+    
+    async function syncAllAccounts() {
+        const btn = event.target;
+        btn.textContent = '⏳ Синхронизация всех...';
+        btn.disabled = true;
+        
+        try {
+            const response = await fetch('/sync_all_orders');
+            const result = await response.json();
+            
+            let message = `Синхронизировано ${result.new_orders} новых заказов\n\n`;
+            result.logs.forEach(log => {
+                message += `${log.account_name} (${log.marketplace.toUpperCase()}): ${log.new_orders} новых\n`;
+            });
+            alert(message);
+            window.location.reload();
+        } catch(e) {
+            alert('Ошибка синхронизации');
+        } finally {
+            btn.textContent = '🔄 Синхронизировать все аккаунты';
+            btn.disabled = false;
+        }
+    }
+    
+    function deleteAccount(id) {
+        if (confirm('Удалить аккаунт? Все связанные заказы тоже будут удалены!')) {
+            window.location.href = '/delete_marketplace_account/' + id;
+        }
+    }
+    
+    window.onclick = function(event) {
+        if (event.target.classList.contains('modal')) {
+            event.target.style.display = 'none';
+        }
+    }
+</script>
+
+<style>
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; margin-bottom: 5px; font-weight: 500; }
+    .modal { display: none; }
+</style>
+</body>
+</html>

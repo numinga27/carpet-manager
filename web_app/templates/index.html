@@ -28,6 +28,8 @@
         }
         .header h1 { font-size: 28px; margin-bottom: 8px; }
         .header p { font-size: 14px; opacity: 0.9; }
+        
+        /* Навигация */
         .nav {
             display: flex;
             gap: 12px;
@@ -48,11 +50,140 @@
             transition: all 0.2s ease;
         }
         .nav button:hover { background: #5a67d8; transform: translateY(-2px); }
+        .nav .marketplace-btn {
+            background: #27ae60;
+        }
+        .nav .marketplace-btn:hover {
+            background: #219a52;
+        }
+        .nav .accounts-btn {
+            background: #9b59b6;
+        }
+        .nav .accounts-btn:hover {
+            background: #8e44ad;
+        }
+        
         .content { padding: 25px; }
+        
+        /* Статистика маркетплейсов */
+        .marketplace-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .marketplace-card {
+            background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .marketplace-card:hover {
+            transform: translateY(-3px);
+        }
+        .marketplace-card h3 {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+        .marketplace-card p {
+            font-size: 13px;
+            opacity: 0.9;
+        }
+        .marketplace-card.wb {
+            background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+        }
+        .marketplace-card.ozon {
+            background: linear-gradient(135deg, #e67e22 0%, #d35400 100%);
+        }
+        .marketplace-card.ready {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+        }
+        .marketplace-card.accounts {
+            background: linear-gradient(135deg, #1abc9c 0%, #16a085 100%);
+        }
+        
+        /* Блок аккаунтов */
+        .accounts-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .account-card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-left: 4px solid;
+        }
+        .account-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .account-card.wb { border-left-color: #9b59b6; }
+        .account-card.ozon { border-left-color: #e67e22; }
+        
+        .account-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        .account-name {
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .account-badge {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            color: white;
+        }
+        .badge-wb { background: #9b59b6; }
+        .badge-ozon { background: #e67e22; }
+        
+        .account-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin: 12px 0;
+            text-align: center;
+        }
+        .account-stat {
+            background: white;
+            padding: 8px 5px;
+            border-radius: 10px;
+        }
+        .account-stat-number {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .account-stat-label {
+            font-size: 10px;
+            color: #666;
+        }
+        .account-footer {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #888;
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid #e0e0e0;
+        }
+        
+        /* Остальные стили */
         .flash-messages { margin-bottom: 20px; }
         .flash-success { background: #27ae60; color: white; padding: 12px 15px; border-radius: 8px; margin-bottom: 10px; }
         .flash-error { background: #e74c3c; color: white; padding: 12px 15px; border-radius: 8px; margin-bottom: 10px; }
         .flash-info { background: #3498db; color: white; padding: 12px 15px; border-radius: 8px; margin-bottom: 10px; }
+        
         .scan-panel {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             padding: 20px;
@@ -75,18 +206,26 @@
         }
         .scan-input input:focus { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5); }
         .scan-result { margin-top: 15px; padding: 12px; border-radius: 10px; background: rgba(255, 255, 255, 0.1); font-size: 14px; }
+        
         h2 { margin: 25px 0 15px 0; color: #333; font-size: 20px; border-left: 4px solid #667eea; padding-left: 15px; }
         .table-wrapper { overflow-x: auto; border-radius: 12px; border: 1px solid #e9ecef; }
         table { width: 100%; border-collapse: collapse; font-size: 14px; }
         th { background: #f8f9fa; padding: 12px; text-align: left; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; }
         td { padding: 10px 12px; border-bottom: 1px solid #e9ecef; vertical-align: middle; }
         tr:hover { background: #f8f9fa; }
-        .clickable-row { cursor: pointer; transition: background 0.2s; }
-        .clickable-row:hover { background: #e8f4fd; }
-        .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; color: white; }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            color: white;
+        }
         .status-created { background: #3498db; }
         .status-scanned { background: #27ae60; }
         .status-sold { background: #95a5a6; }
+        
         .action-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
         .btn { padding: 5px 10px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.2s; }
         .btn-edit { background: #f39c12; color: white; }
@@ -94,10 +233,8 @@
         .btn-pdf { background: #e74c3c; color: white; }
         .btn-delete { background: #e74c3c; color: white; }
         .btn-scan { background: #27ae60; color: white; }
-        .btn-close { background: #95a5a6; color: white; }
-        .btn:hover { opacity: 0.85; transform: scale(1.02); }
-        .qr-preview { max-width: 45px; max-height: 45px; cursor: pointer; border-radius: 8px; transition: transform 0.2s; border: 1px solid #ddd; }
-        .qr-preview:hover { transform: scale(1.1); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); }
+        .qr-preview { max-width: 45px; max-height: 45px; cursor: pointer; border-radius: 8px; border: 1px solid #ddd; }
+        
         .modal {
             display: none;
             position: fixed;
@@ -122,7 +259,6 @@
             from { opacity: 0; transform: translateY(-50px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        .modal-content h2 { margin-top: 0; margin-bottom: 20px; border-left: none; padding-left: 0; text-align: center; }
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; margin-bottom: 6px; font-weight: 500; color: #333; font-size: 13px; }
         .form-group input, .form-group select, .form-group textarea {
@@ -131,22 +267,10 @@
             border: 1px solid #ddd;
             border-radius: 8px;
             font-size: 14px;
-            font-family: inherit;
         }
-        .form-group textarea { resize: vertical; min-height: 60px; }
         .modal-buttons { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
         .btn-save { background: #27ae60; color: white; }
         .btn-cancel { background: #95a5a6; color: white; }
-        .info-note {
-            background: #e8f4fd;
-            padding: 12px 15px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            font-size: 13px;
-            color: #2c3e50;
-            border-left: 4px solid #3498db;
-        }
-        .price-hint { font-size: 11px; color: #666; margin-top: 8px; }
         .range-labels { display: flex; justify-content: space-between; margin-top: 5px; font-size: 10px; color: #888; }
         .badge-green {
             background: #27ae60;
@@ -155,13 +279,15 @@
             border-radius: 15px;
             font-size: 12px;
         }
+        
         @media (max-width: 768px) {
             body { padding: 10px; }
             .nav { flex-direction: column; }
             .nav button { width: 100%; }
             th, td { padding: 8px; font-size: 12px; }
             .action-buttons { flex-direction: column; }
-            .modal-content { width: 95%; padding: 20px; }
+            .accounts-stats { grid-template-columns: 1fr; }
+            .account-stats-grid { grid-template-columns: repeat(4, 1fr); }
         }
     </style>
 </head>
@@ -169,7 +295,7 @@
 <div class="container">
     <div class="header">
         <h1>🧵 Ковровый учёт</h1>
-        <p>Система управления производством ковров</p>
+        <p>Система управления производством ковров для автомобилей</p>
     </div>
 
     <div class="nav">
@@ -181,6 +307,8 @@
         <button onclick="window.location.href='/stats'">📊 Статистика</button>
         <button onclick="window.location.href='/mass_print_qr'">🖨️ Массовая печать</button>
         <button onclick="window.location.href='/forecast'">📈 Прогноз продаж</button>
+        <button onclick="window.location.href='/marketplace_orders'" class="marketplace-btn">🛒 Заказы</button>
+        <button onclick="window.location.href='/marketplace_accounts'" class="accounts-btn">🏪 Аккаунты</button>
         <button onclick="toggleScanPanel()" id="scanToggleBtn">✖️ Закрыть сканер</button>
     </div>
 
@@ -197,12 +325,33 @@
             {% endif %}
         {% endwith %}
 
-        <div class="info-note">
-            💡 <strong>Как сканировать QR-код:</strong> Подключите USB-сканер, наведите на QR-код — 
-            данные появятся автоматически. Поле само очищается и фокусируется для следующего сканирования.<br>
-            ✅ <strong>Статус обновляется мгновенно</strong> — отсканированные ковры сразу становятся зелёными.<br>
-            📈 <strong>Прогноз продаж</strong> — аналитика на основе исторических данных.<br>
-            🖨️ <strong>Печать наклеек:</strong> Каждый QR печатается на наклейку 60×40 мм с информацией о типе и швее.
+        <!-- БЛОК СТАТИСТИКИ МАРКЕТПЛЕЙСОВ -->
+        <div class="marketplace-stats" id="marketplaceStats">
+            <div class="marketplace-card" onclick="window.location.href='/marketplace_orders?status=new'">
+                <h3 id="totalNew">0</h3>
+                <p>🆕 Новые заказы</p>
+                <small>Всего по всем аккаунтам</small>
+            </div>
+            <div class="marketplace-card wb" onclick="window.location.href='/marketplace_orders?status=processing'">
+                <h3 id="totalProcessing">0</h3>
+                <p>⚙️ В обработке</p>
+                <small>Ковёр привязан</small>
+            </div>
+            <div class="marketplace-card ready" onclick="window.location.href='/marketplace_orders?status=ready'">
+                <h3 id="totalReady">0</h3>
+                <p>✅ Готовы к отгрузке</p>
+                <small>Можно отправлять</small>
+            </div>
+            <div class="marketplace-card accounts" onclick="window.location.href='/marketplace_accounts'">
+                <h3 id="accountsCount">0</h3>
+                <p>🏪 Аккаунтов</p>
+                <small>Управление</small>
+            </div>
+        </div>
+
+        <!-- БЛОК АККАУНТОВ (краткая статистика по каждому) -->
+        <div class="accounts-stats" id="accountsStats">
+            <div style="text-align: center; padding: 20px; color: #999;">Загрузка статистики...</div>
         </div>
 
         <!-- Панель сканирования -->
@@ -320,7 +469,7 @@
     </div>
 </div>
 
-<!-- Модальное окно добавления ковра -->
+<!-- Модальные окна -->
 <div id="carpetModal" class="modal"><div class="modal-content">
     <h2>➕ Добавить ковёр</h2>
     <form action="/add_carpet" method="POST">
@@ -335,7 +484,6 @@
     </form>
 </div></div>
 
-<!-- Модальное окно группового добавления -->
 <div id="groupModal" class="modal"><div class="modal-content">
     <h2>📦 Групповое добавление ковров</h2>
     <form action="/add_carpet_group" method="POST" id="groupForm">
@@ -344,7 +492,6 @@
             <input type="range" name="count" min="1" max="2000" value="10" oninput="updateCountValue(this.value)" style="width:100%">
             <div class="range-labels"><span>1</span><span>500</span><span>1000</span><span>1500</span><span>2000</span></div>
             <input type="number" id="countNumber" min="1" max="2000" value="10" oninput="updateCountFromNumber(this.value)" style="width:100%; margin-top:10px;">
-            <div class="price-hint">⚡ Можно добавить до 2000 ковров за раз. QR-коды сгенерируются автоматически.</div>
         </div>
         <div class="form-group"><label>Швея *</label><select name="craftsman_id" required>{% for craftsman in craftsmen %}<option value="{{ craftsman.id }}">{{ craftsman.name }}</option>{% endfor %}</select></div>
         <div class="form-group"><label>Размер (м)</label><input type="text" name="size" placeholder="2x3 м"></div>
@@ -354,7 +501,6 @@
     </form>
 </div></div>
 
-<!-- Модальное окно добавления швеи -->
 <div id="craftsmanModal" class="modal"><div class="modal-content">
     <h2>👤 Добавить швею</h2>
     <form action="/add_craftsman" method="POST">
@@ -365,6 +511,7 @@
 </div></div>
 
 <script>
+    // Функции для модальных окон
     function updatePrice() {
         const select = document.getElementById('carpet_type_id');
         if (select && select.selectedIndex >= 0) {
@@ -390,6 +537,7 @@
     }
     function closeModal(type) { document.getElementById(type + 'Modal').style.display = 'none'; }
     
+    // Панель сканирования
     function toggleScanPanel() {
         const panel = document.getElementById('scanPanel');
         const btn = document.getElementById('scanToggleBtn');
@@ -405,6 +553,7 @@
         }
     }
     
+    // Сканирование QR
     async function scanQR() {
         const qrInput = document.getElementById('qrInput');
         const qrCode = qrInput.value.trim();
@@ -484,6 +633,75 @@
     function printQR(carpetId) { window.open('/print_qr/' + carpetId, '_blank', 'width=450,height=600'); }
     function printSinglePDF(carpetId) { window.open('/print_single_pdf/' + carpetId, '_blank'); }
     
+    // Загрузка статистики по аккаунтам
+    async function loadAccountsStats() {
+        try {
+            const response = await fetch('/marketplace_stats_api');
+            const data = await response.json();
+            
+            // Обновляем общую статистику
+            document.getElementById('totalNew').textContent = data.total.new;
+            document.getElementById('totalProcessing').textContent = data.total.processing;
+            document.getElementById('totalReady').textContent = data.total.ready;
+            document.getElementById('accountsCount').textContent = data.accounts.length;
+            
+            // Обновляем статистику по каждому аккаунту
+            const accountsContainer = document.getElementById('accountsStats');
+            if (data.accounts.length > 0) {
+                accountsContainer.innerHTML = data.accounts.map(acc => `
+                    <div class="account-card ${acc.marketplace}" onclick="window.location.href='/marketplace_orders?account_id=${acc.id}'">
+                        <div class="account-header">
+                            <div>
+                                <span class="account-name">${escapeHtml(acc.name)}</span>
+                                <span class="account-badge badge-${acc.marketplace}">${acc.marketplace === 'wb' ? 'WB' : 'Ozon'}</span>
+                            </div>
+                            <span style="font-size: 11px; color: #999;">${escapeHtml(acc.login) || ''}</span>
+                        </div>
+                        <div class="account-stats-grid">
+                            <div class="account-stat">
+                                <div class="account-stat-number" style="color: #27ae60;">${acc.new}</div>
+                                <div class="account-stat-label">🆕 Новые</div>
+                            </div>
+                            <div class="account-stat">
+                                <div class="account-stat-number" style="color: #f39c12;">${acc.processing}</div>
+                                <div class="account-stat-label">⚙️ В работе</div>
+                            </div>
+                            <div class="account-stat">
+                                <div class="account-stat-number" style="color: #3498db;">${acc.ready}</div>
+                                <div class="account-stat-label">✅ Готовы</div>
+                            </div>
+                            <div class="account-stat">
+                                <div class="account-stat-number" style="color: #95a5a6;">${acc.shipped}</div>
+                                <div class="account-stat-label">🚚 Отправл.</div>
+                            </div>
+                        </div>
+                        <div class="account-footer">
+                            <span>📦 Всего: ${acc.total}</span>
+                            <span>💰 ${acc.revenue.toLocaleString()} ₽</span>
+                            <span>🕐 ${acc.last_sync ? acc.last_sync.slice(0, 10) : 'нет синхр.'}</span>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                accountsContainer.innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: #999; grid-column: 1/-1;">
+                        Нет добавленных аккаунтов. Нажмите "Аккаунты" чтобы добавить.
+                    </div>
+                `;
+            }
+        } catch(e) {
+            console.log('Ошибка загрузки статистики:', e);
+            document.getElementById('accountsStats').innerHTML = '<div style="text-align: center; padding: 20px; color: #999;">Ошибка загрузки статистики</div>';
+        }
+    }
+    
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
     document.getElementById('groupSubmitBtn')?.addEventListener('click', function(e) {
         const count = parseInt(document.querySelector('input[name="count"]').value);
         if (count > 500 && !confirm(`Создать ${count} ковров? Это может занять время.`)) {
@@ -504,9 +722,18 @@
             });
             input.focus();
         }
+        
+        // Загружаем статистику
+        loadAccountsStats();
+        
+        // Автообновление каждые 30 секунд
+        setInterval(loadAccountsStats, 30000);
     });
     
-    window.onclick = function(event) { if (event.target.classList.contains('modal')) event.target.style.display = 'none'; }
+    window.onclick = function(event) { 
+        if (event.target.classList.contains('modal')) 
+            event.target.style.display = 'none'; 
+    }
 </script>
 </body>
 </html>

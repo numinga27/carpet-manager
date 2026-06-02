@@ -11,6 +11,8 @@ import io
 import zipfile
 import socket
 from collections import defaultdict
+import requests
+import json
 
 # ========== ПОДДЕРЖКА РУССКОГО ШРИФТА ДЛЯ PDF ==========
 try:
@@ -145,15 +147,198 @@ class ScanLog(db.Model):
     scanned_by = db.Column(db.String(50), default='admin')
     result = db.Column(db.String(20))
 
+# ========== МОДЕЛИ ДЛЯ МАРКЕТПЛЕЙСОВ (МНОГО АККАУНТОВ) ==========
+class MarketplaceAccount(db.Model):
+    """Аккаунт на маркетплейсе"""
+    id = db.Column(db.Integer, primary_key=True)
+    marketplace = db.Column(db.String(20))  # 'ozon' или 'wb'
+    account_name = db.Column(db.String(100))  # Например: "Озон Основной", "WB Сезонный"
+    account_login = db.Column(db.String(100))  # Логин/название магазина
+    api_key = db.Column(db.String(500))  # API-ключ
+    client_id = db.Column(db.String(100))  # Для Ozon
+    is_active = db.Column(db.Boolean, default=True)
+    last_sync = db.Column(db.String(20))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Связь с заказами
+    orders = db.relationship('MarketplaceOrder', backref='account_ref', lazy=True)
+
+class MarketplaceOrder(db.Model):
+    """Заказ с маркетплейса"""
+    id = db.Column(db.Integer, primary_key=True)
+    account_id = db.Column(db.Integer, db.ForeignKey('marketplace_account.id'))
+    marketplace = db.Column(db.String(20))  # 'ozon' или 'wb'
+    order_id = db.Column(db.String(50), unique=True)
+    carpet_id = db.Column(db.String(50), db.ForeignKey('carpet.carpet_id'))
+    
+    # Информация о заказе
+    customer_name = db.Column(db.String(100))
+    customer_phone = db.Column(db.String(20))
+    delivery_address = db.Column(db.Text)
+    status = db.Column(db.String(50), default='new')  # new, processing, ready, shipped
+    ordered_at = db.Column(db.String(20))
+    shipped_at = db.Column(db.String(20))
+    price = db.Column(db.Float)
+    products_info = db.Column(db.Text)  # JSON
+    
+    # Для отслеживания
+    wb_supply_id = db.Column(db.String(50))  # ID поставки WB
+    ozon_posting_number = db.Column(db.String(50))  # Номер отправления Ozon
+
+class MarketplaceSyncLog(db.Model):
+    """Лог синхронизации заказов"""
+    id = db.Column(db.Integer, primary_key=True)
+    account_id = db.Column(db.Integer, db.ForeignKey('marketplace_account.id'))
+    sync_time = db.Column(db.String(20))
+    orders_found = db.Column(db.Integer)
+    orders_new = db.Column(db.Integer)
+    error_message = db.Column(db.Text)
+    status = db.Column(db.String(20))  # success, error
+
+# ========== ФУНКЦИИ АВТОМАТИЧЕСКОЙ МИГРАЦИИ БД ==========
+DB_VERSION = 2
+
+def get_db_version():
+    """Получение текущей версии БД"""
+    try:
+        result = db.session.execute("SELECT version FROM db_version LIMIT 1").fetchone()
+        return result[0] if result else 0
+    except:
+        return 0
+
+def set_db_version(version):
+    """Установка версии БД"""
+    try:
+        db.session.execute("CREATE TABLE IF NOT EXISTS db_version (version INTEGER)")
+        db.session.execute("DELETE FROM db_version")
+        db.session.execute("INSERT INTO db_version (version) VALUES (:version)", {'version': version})
+        db.session.commit()
+    except:
+        pass
+
+def migrate_to_v2():
+    """Миграция с версии 1 на версию 2 (добавление колонок для маркетплейсов)"""
+    print("[MIGRATION] Обновление БД с версии 1 до 2...")
+    success = True
+    
+    try:
+        # Получаем список существующих колонок в таблице marketplace_order
+        cursor = db.session.execute("PRAGMA table_info(marketplace_order)").fetchall()
+        existing_columns = [col[1] for col in cursor] if cursor else []
+        
+        # Добавляем колонку account_id
+        if 'account_id' not in existing_columns:
+            try:
+                db.session.execute("ALTER TABLE marketplace_order ADD COLUMN account_id INTEGER")
+                print("[MIGRATION] ✓ Добавлена колонка account_id")
+            except Exception as e:
+                print(f"[MIGRATION] ⚠️ Не удалось добавить account_id: {e}")
+        
+        # Добавляем колонку wb_supply_id
+        if 'wb_supply_id' not in existing_columns:
+            try:
+                db.session.execute("ALTER TABLE marketplace_order ADD COLUMN wb_supply_id VARCHAR(50)")
+                print("[MIGRATION] ✓ Добавлена колонка wb_supply_id")
+            except Exception as e:
+                print(f"[MIGRATION] ⚠️ Не удалось добавить wb_supply_id: {e}")
+        
+        # Добавляем колонку ozon_posting_number
+        if 'ozon_posting_number' not in existing_columns:
+            try:
+                db.session.execute("ALTER TABLE marketplace_order ADD COLUMN ozon_posting_number VARCHAR(50)")
+                print("[MIGRATION] ✓ Добавлена колонка ozon_posting_number")
+            except Exception as e:
+                print(f"[MIGRATION] ⚠️ Не удалось добавить ozon_posting_number: {e}")
+        
+        # Проверяем таблицу marketplace_account
+        cursor = db.session.execute("PRAGMA table_info(marketplace_account)").fetchall()
+        if cursor:
+            existing_columns = [col[1] for col in cursor]
+            
+            if 'account_name' not in existing_columns:
+                try:
+                    db.session.execute("ALTER TABLE marketplace_account ADD COLUMN account_name VARCHAR(100)")
+                    print("[MIGRATION] ✓ Добавлена колонка account_name")
+                except Exception as e:
+                    print(f"[MIGRATION] ⚠️ Не удалось добавить account_name: {e}")
+            
+            if 'account_login' not in existing_columns:
+                try:
+                    db.session.execute("ALTER TABLE marketplace_account ADD COLUMN account_login VARCHAR(100)")
+                    print("[MIGRATION] ✓ Добавлена колонка account_login")
+                except Exception as e:
+                    print(f"[MIGRATION] ⚠️ Не удалось добавить account_login: {e}")
+            
+            if 'client_id' not in existing_columns:
+                try:
+                    db.session.execute("ALTER TABLE marketplace_account ADD COLUMN client_id VARCHAR(100)")
+                    print("[MIGRATION] ✓ Добавлена колонка client_id")
+                except Exception as e:
+                    print(f"[MIGRATION] ⚠️ Не удалось добавить client_id: {e}")
+        
+        # Создаём таблицу sync_log
+        db.session.execute("""
+            CREATE TABLE IF NOT EXISTS marketplace_sync_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                account_id INTEGER,
+                sync_time VARCHAR(20),
+                orders_found INTEGER,
+                orders_new INTEGER,
+                error_message TEXT,
+                status VARCHAR(20)
+            )
+        """)
+        print("[MIGRATION] ✓ Таблица marketplace_sync_log создана/проверена")
+        
+        db.session.commit()
+        print("[MIGRATION] ✅ Обновление до версии 2 успешно завершено")
+        
+    except Exception as e:
+        print(f"[MIGRATION] ❌ Ошибка при миграции: {e}")
+        db.session.rollback()
+        success = False
+    
+    return success
+
+def migrate_database():
+    """Автоматическое обновление схемы БД при запуске"""
+    print("[MIGRATION] Проверка версии базы данных...")
+    
+    current_version = get_db_version()
+    print(f"[MIGRATION] Текущая версия БД: {current_version}")
+    
+    if current_version == 0:
+        # Первый запуск, создаём таблицы
+        print("[MIGRATION] Первый запуск, создание таблиц...")
+        db.create_all()
+        set_db_version(DB_VERSION)
+        print(f"[MIGRATION] ✅ База данных инициализирована (версия {DB_VERSION})")
+    
+    elif current_version < DB_VERSION:
+        # Нужно обновление
+        print(f"[MIGRATION] Требуется обновление с версии {current_version} до {DB_VERSION}")
+        
+        if current_version == 1:
+            if migrate_to_v2():
+                set_db_version(2)
+                print(f"[MIGRATION] ✅ База данных обновлена до версии {DB_VERSION}")
+            else:
+                print("[MIGRATION] ⚠️ Обновление прошло с ошибками, но приложение продолжит работу")
+                set_db_version(DB_VERSION)
+        else:
+            print(f"[MIGRATION] ⚠️ Неизвестная версия БД {current_version}, создаём таблицы заново")
+            db.create_all()
+            set_db_version(DB_VERSION)
+    else:
+        print(f"[MIGRATION] ✅ База данных актуальна (версия {current_version})")
+
 # ========== ФУНКЦИИ ПРОГНОЗИРОВАНИЯ ==========
 def forecast_sales(days=30):
     try:
-        # Используем try-except для обертки всего запроса
         try:
             scans = ScanLog.query.filter_by(result='success').all()
         except Exception as db_error:
             print(f"[FORECAST] Ошибка БД: {db_error}")
-            # Возвращаем пустые данные вместо ошибки
             return {
                 "error": None, 
                 "data": [],
@@ -284,6 +469,65 @@ def calculate_trend():
         print(f"[TREND] Ошибка: {e}")
         return {"trend": "unknown", "percent": 0, "last_week": 0, "prev_week": 0}
 
+# ========== ФУНКЦИИ ДЛЯ РАБОТЫ С МАРКЕТПЛЕЙСАМИ ==========
+class MarketplaceAPI:
+    """Класс для работы с API маркетплейсов (поддержка нескольких аккаунтов)"""
+    
+    @staticmethod
+    def get_wb_orders(api_key, date_from=None):
+        """Получение заказов с Wildberries"""
+        if not date_from:
+            date_from = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
+        
+        url = "https://suppliers-api.wildberries.ru/api/v3/orders"
+        headers = {"Authorization": api_key}
+        params = {"dateFrom": date_from}
+        
+        try:
+            response = requests.get(url, headers=headers, params=params, timeout=30)
+            if response.status_code == 200:
+                data = response.json()
+                return data.get('orders', [])
+            else:
+                print(f"[WB] Ошибка: {response.status_code}")
+                return []
+        except Exception as e:
+            print(f"[WB] Ошибка соединения: {e}")
+            return []
+    
+    @staticmethod
+    def get_ozon_orders(api_key, client_id, date_from=None):
+        """Получение заказов с Ozon"""
+        if not date_from:
+            date_from = (datetime.now() - timedelta(days=7)).isoformat()
+        
+        url = "https://api-seller.ozon.ru/v3/posting/fbs/list"
+        headers = {
+            "Api-Key": api_key,
+            "Client-Id": client_id,
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "dir": "desc",
+            "filter": {
+                "since": date_from,
+                "status": "awaiting_packaging"
+            },
+            "limit": 100
+        }
+        
+        try:
+            response = requests.post(url, headers=headers, json=payload, timeout=30)
+            if response.status_code == 200:
+                data = response.json()
+                return data.get('result', {}).get('postings', [])
+            else:
+                print(f"[Ozon] Ошибка: {response.status_code}")
+                return []
+        except Exception as e:
+            print(f"[Ozon] Ошибка соединения: {e}")
+            return []
+
 # ========== ФУНКЦИИ ==========
 def generate_qr_code(carpet_id, carpet_data):
     qr = qrcode.QRCode(version=1, box_size=10, border=4, error_correction=qrcode.constants.ERROR_CORRECT_M)
@@ -307,10 +551,108 @@ def generate_next_id():
         next_num = 1
     return f"CARPET-{next_num:04d}"
 
-# ========== СОЗДАНИЕ БД ==========
-with app.app_context():
-    db.create_all()
+def sync_account_orders(account_id):
+    """Синхронизация заказов для конкретного аккаунта"""
+    account = MarketplaceAccount.query.get(account_id)
+    if not account or not account.is_active:
+        return 0
     
+    new_orders_count = 0
+    orders = []
+    
+    try:
+        if account.marketplace == 'wb':
+            orders = MarketplaceAPI.get_wb_orders(account.api_key)
+            
+            for order in orders:
+                existing = MarketplaceOrder.query.filter_by(
+                    marketplace='wb',
+                    order_id=str(order.get('id'))
+                ).first()
+                
+                if not existing:
+                    customer = order.get('customer', {})
+                    delivery = order.get('delivery', {})
+                    
+                    new_order = MarketplaceOrder(
+                        account_id=account.id,
+                        marketplace='wb',
+                        order_id=str(order.get('id')),
+                        customer_name=customer.get('name', ''),
+                        customer_phone=customer.get('phone', ''),
+                        delivery_address=delivery.get('address', ''),
+                        status='new',
+                        ordered_at=order.get('createdAt', ''),
+                        price=order.get('price', 0),
+                        products_info=json.dumps(order.get('products', [])),
+                        wb_supply_id=order.get('supplyId', '')
+                    )
+                    db.session.add(new_order)
+                    new_orders_count += 1
+                    
+        elif account.marketplace == 'ozon':
+            orders = MarketplaceAPI.get_ozon_orders(account.api_key, account.client_id)
+            
+            for order in orders:
+                existing = MarketplaceOrder.query.filter_by(
+                    marketplace='ozon',
+                    order_id=str(order.get('posting_number'))
+                ).first()
+                
+                if not existing:
+                    customer = order.get('customer', {})
+                    delivery = order.get('delivery', {})
+                    products = order.get('products', [])
+                    
+                    new_order = MarketplaceOrder(
+                        account_id=account.id,
+                        marketplace='ozon',
+                        order_id=order.get('posting_number'),
+                        customer_name=customer.get('name', ''),
+                        customer_phone=customer.get('phone', ''),
+                        delivery_address=delivery.get('address', {}).get('address_txt', ''),
+                        status='new',
+                        ordered_at=order.get('created_at', ''),
+                        price=sum(p.get('price', 0) * p.get('quantity', 1) for p in products),
+                        products_info=json.dumps(products),
+                        ozon_posting_number=order.get('posting_number')
+                    )
+                    db.session.add(new_order)
+                    new_orders_count += 1
+        
+        account.last_sync = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        db.session.commit()
+        
+        # Логируем синхронизацию
+        sync_log = MarketplaceSyncLog(
+            account_id=account.id,
+            sync_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            orders_found=len(orders),
+            orders_new=new_orders_count,
+            status='success'
+        )
+        db.session.add(sync_log)
+        db.session.commit()
+        
+    except Exception as e:
+        print(f"[SYNC] Ошибка при синхронизации аккаунта {account.account_name}: {e}")
+        sync_log = MarketplaceSyncLog(
+            account_id=account.id,
+            sync_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            error_message=str(e),
+            status='error'
+        )
+        db.session.add(sync_log)
+        db.session.commit()
+    
+    return new_orders_count
+
+# ========== СОЗДАНИЕ БД С АВТОМАТИЧЕСКОЙ МИГРАЦИЕЙ ==========
+with app.app_context():
+    # Автоматическая миграция БД
+    migrate_database()
+    
+    # Создание тестовых данных если их нет
     if CarpetType.query.count() == 0:
         default_types = [
             CarpetType(name="Персидский", base_price=15000),
@@ -358,10 +700,20 @@ with app.app_context():
 # ========== МАРШРУТЫ ==========
 @app.route('/')
 def index():
+    # Получаем статистику по заказам с маркетплейсов
+    new_orders_count = MarketplaceOrder.query.filter_by(status='new').count()
+    processing_orders_count = MarketplaceOrder.query.filter_by(status='processing').count()
+    ready_orders_count = MarketplaceOrder.query.filter_by(status='ready').count()
+    accounts_count = MarketplaceAccount.query.filter_by(is_active=True).count()
+    
     return render_template('index.html', 
                          carpets=Carpet.query.all(),
                          craftsmen=Craftsman.query.all(),
-                         carpet_types=CarpetType.query.all())
+                         carpet_types=CarpetType.query.all(),
+                         new_orders_count=new_orders_count,
+                         processing_orders_count=processing_orders_count,
+                         ready_orders_count=ready_orders_count,
+                         accounts_count=accounts_count)
 
 @app.route('/forecast')
 def forecast_page():
@@ -819,10 +1171,10 @@ def generate_qr_pdf():
         traceback.print_exc()
         return f"Ошибка: {str(e)}", 500
 
-# ========== ФУНКЦИЯ: QR НА ВЕСЬ ЛИСТ А4 (уменьшена на 10%) ==========
+# ========== ФУНКЦИЯ: QR НА ВЕСЬ ЛИСТ А4 ==========
 @app.route('/generate_single_pages_pdf')
 def generate_single_pages_pdf():
-    """Генерирует PDF, где каждый QR-код на весь лист А4 (уменьшено на 10%)"""
+    """Генерирует PDF, где каждый QR-код на весь лист А4"""
     carpet_type_id = request.args.get('carpet_type_id', '')
     craftsman_id = request.args.get('craftsman_id', '')
     status = request.args.get('status', '')
@@ -938,6 +1290,265 @@ def generate_single_pages_pdf():
         traceback.print_exc()
         return f"Ошибка: {str(e)}", 500
 
+# ========== МАРШРУТЫ ДЛЯ МАРКЕТПЛЕЙСОВ (МНОГО АККАУНТОВ) ==========
+@app.route('/marketplace_accounts')
+def marketplace_accounts():
+    """Страница управления аккаунтами маркетплейсов"""
+    accounts = MarketplaceAccount.query.order_by(MarketplaceAccount.marketplace, MarketplaceAccount.account_name).all()
+    
+    # Статистика по каждому аккаунту
+    for account in accounts:
+        account.stats = {
+            'new': MarketplaceOrder.query.filter_by(account_id=account.id, status='new').count(),
+            'processing': MarketplaceOrder.query.filter_by(account_id=account.id, status='processing').count(),
+            'ready': MarketplaceOrder.query.filter_by(account_id=account.id, status='ready').count(),
+            'shipped': MarketplaceOrder.query.filter_by(account_id=account.id, status='shipped').count(),
+            'total': MarketplaceOrder.query.filter_by(account_id=account.id).count()
+        }
+    
+    # Общая статистика
+    total_stats = {
+        'new': MarketplaceOrder.query.filter_by(status='new').count(),
+        'processing': MarketplaceOrder.query.filter_by(status='processing').count(),
+        'ready': MarketplaceOrder.query.filter_by(status='ready').count(),
+        'shipped': MarketplaceOrder.query.filter_by(status='shipped').count(),
+        'total': MarketplaceOrder.query.count(),
+        'wb_orders': MarketplaceOrder.query.filter_by(marketplace='wb').count(),
+        'ozon_orders': MarketplaceOrder.query.filter_by(marketplace='ozon').count(),
+        'total_revenue': db.session.query(db.func.sum(MarketplaceOrder.price)).scalar() or 0
+    }
+    
+    return render_template('marketplace_accounts.html', 
+                         accounts=accounts, 
+                         total_stats=total_stats)
+
+@app.route('/add_marketplace_account', methods=['POST'])
+def add_marketplace_account():
+    """Добавление нового аккаунта маркетплейса"""
+    marketplace = request.form.get('marketplace')
+    account_name = request.form.get('account_name')
+    account_login = request.form.get('account_login')
+    api_key = request.form.get('api_key')
+    client_id = request.form.get('client_id', '')
+    is_active = 'is_active' in request.form
+    
+    existing = MarketplaceAccount.query.filter_by(
+        marketplace=marketplace, 
+        account_name=account_name
+    ).first()
+    
+    if existing:
+        flash('Аккаунт с таким названием уже существует!', 'error')
+    else:
+        new_account = MarketplaceAccount(
+            marketplace=marketplace,
+            account_name=account_name,
+            account_login=account_login,
+            api_key=api_key,
+            client_id=client_id,
+            is_active=is_active
+        )
+        db.session.add(new_account)
+        db.session.commit()
+        flash(f'Аккаунт "{account_name}" добавлен!', 'success')
+    
+    return redirect(url_for('marketplace_accounts'))
+
+@app.route('/edit_marketplace_account/<int:id>', methods=['GET', 'POST'])
+def edit_marketplace_account(id):
+    account = MarketplaceAccount.query.get_or_404(id)
+    
+    if request.method == 'POST':
+        account.account_name = request.form.get('account_name')
+        account.account_login = request.form.get('account_login')
+        account.api_key = request.form.get('api_key')
+        account.client_id = request.form.get('client_id', '')
+        account.is_active = 'is_active' in request.form
+        db.session.commit()
+        flash(f'Аккаунт "{account.account_name}" обновлён!', 'success')
+        return redirect(url_for('marketplace_accounts'))
+    
+    return render_template('edit_marketplace_account.html', account=account)
+
+@app.route('/delete_marketplace_account/<int:id>')
+def delete_marketplace_account(id):
+    account = MarketplaceAccount.query.get_or_404(id)
+    
+    # Проверяем, есть ли заказы
+    orders_count = MarketplaceOrder.query.filter_by(account_id=id).count()
+    if orders_count > 0:
+        flash(f'Нельзя удалить аккаунт с {orders_count} заказами! Сначала удалите заказы.', 'error')
+    else:
+        db.session.delete(account)
+        db.session.commit()
+        flash(f'Аккаунт "{account.account_name}" удалён', 'info')
+    
+    return redirect(url_for('marketplace_accounts'))
+
+@app.route('/sync_account/<int:account_id>')
+def sync_account(account_id):
+    """Синхронизация заказов для конкретного аккаунта"""
+    new_orders = sync_account_orders(account_id)
+    
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({'success': True, 'new_orders': new_orders})
+    
+    flash(f'Синхронизировано {new_orders} новых заказов', 'success')
+    return redirect(url_for('marketplace_accounts'))
+
+@app.route('/sync_all_orders')
+def sync_all_orders():
+    """Синхронизация заказов со всех активных аккаунтов"""
+    accounts = MarketplaceAccount.query.filter_by(is_active=True).all()
+    total_new_orders = 0
+    sync_logs = []
+    
+    for account in accounts:
+        new_orders = sync_account_orders(account.id)
+        total_new_orders += new_orders
+        
+        sync_logs.append({
+            'account_name': account.account_name,
+            'marketplace': account.marketplace,
+            'new_orders': new_orders
+        })
+    
+    # Возвращаем JSON для AJAX запроса
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({'success': True, 'new_orders': total_new_orders, 'logs': sync_logs})
+    
+    flash(f'Синхронизировано {total_new_orders} новых заказов с {len(accounts)} аккаунтов', 'success')
+    return redirect(url_for('marketplace_accounts'))
+
+@app.route('/marketplace_orders')
+def marketplace_orders():
+    """Страница заказов с фильтрацией по аккаунту"""
+    account_id = request.args.get('account_id', '')
+    status_filter = request.args.get('status', '')
+    marketplace_filter = request.args.get('marketplace', '')
+    
+    query = MarketplaceOrder.query
+    
+    if account_id:
+        query = query.filter(MarketplaceOrder.account_id == account_id)
+    if status_filter:
+        query = query.filter(MarketplaceOrder.status == status_filter)
+    if marketplace_filter:
+        query = query.filter(MarketplaceOrder.marketplace == marketplace_filter)
+    
+    orders = query.order_by(MarketplaceOrder.ordered_at.desc()).all()
+    accounts = MarketplaceAccount.query.all()
+    carpets = Carpet.query.filter_by(status='created').all()
+    
+    # Статистика для выбранного аккаунта или общая
+    if account_id:
+        stats = {
+            'new': MarketplaceOrder.query.filter_by(account_id=account_id, status='new').count(),
+            'processing': MarketplaceOrder.query.filter_by(account_id=account_id, status='processing').count(),
+            'ready': MarketplaceOrder.query.filter_by(account_id=account_id, status='ready').count(),
+            'shipped': MarketplaceOrder.query.filter_by(account_id=account_id, status='shipped').count()
+        }
+    else:
+        stats = {
+            'new': MarketplaceOrder.query.filter_by(status='new').count(),
+            'processing': MarketplaceOrder.query.filter_by(status='processing').count(),
+            'ready': MarketplaceOrder.query.filter_by(status='ready').count(),
+            'shipped': MarketplaceOrder.query.filter_by(status='shipped').count()
+        }
+    
+    return render_template('marketplace_orders.html', 
+                         orders=orders, 
+                         accounts=accounts,
+                         carpets=carpets,
+                         stats=stats,
+                         selected_account=account_id,
+                         selected_status=status_filter,
+                         selected_marketplace=marketplace_filter)
+
+@app.route('/link_order_to_carpet', methods=['POST'])
+def link_order_to_carpet():
+    """Привязка готового ковра к заказу"""
+    order_id = request.form.get('order_id')
+    carpet_id = request.form.get('carpet_id')
+    
+    order = MarketplaceOrder.query.get(order_id)
+    carpet = Carpet.query.filter_by(carpet_id=carpet_id).first()
+    
+    if order and carpet:
+        order.carpet_id = carpet.carpet_id
+        order.status = 'processing'
+        db.session.commit()
+        flash(f'Ковёр {carpet_id} привязан к заказу {order.order_id}', 'success')
+    
+    return redirect(url_for('marketplace_orders'))
+
+@app.route('/update_order_status', methods=['POST'])
+def update_order_status():
+    """Обновление статуса заказа"""
+    order_id = request.form.get('order_id')
+    status = request.form.get('status')
+    
+    order = MarketplaceOrder.query.get(order_id)
+    if order:
+        order.status = status
+        if status == 'shipped':
+            order.shipped_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            # Если заказ отправлен, обновляем статус ковра
+            if order.carpet_id:
+                carpet = Carpet.query.filter_by(carpet_id=order.carpet_id).first()
+                if carpet and carpet.status == 'scanned':
+                    carpet.status = 'sold'
+                    db.session.commit()
+        db.session.commit()
+        
+        flash(f'Статус заказа {order.order_id} обновлён на "{status}"', 'success')
+    
+    return redirect(url_for('marketplace_orders'))
+
+@app.route('/marketplace_stats_api')
+def marketplace_stats_api():
+    """API для получения статистики по всем аккаунтам (для дашборда)"""
+    accounts = MarketplaceAccount.query.filter_by(is_active=True).all()
+    
+    result = {
+        'total': {
+            'new': 0,
+            'processing': 0,
+            'ready': 0,
+            'shipped': 0,
+            'total_orders': 0,
+            'total_revenue': 0
+        },
+        'accounts': []
+    }
+    
+    for account in accounts:
+        account_stats = {
+            'id': account.id,
+            'name': account.account_name,
+            'marketplace': account.marketplace,
+            'login': account.account_login,
+            'new': MarketplaceOrder.query.filter_by(account_id=account.id, status='new').count(),
+            'processing': MarketplaceOrder.query.filter_by(account_id=account.id, status='processing').count(),
+            'ready': MarketplaceOrder.query.filter_by(account_id=account.id, status='ready').count(),
+            'shipped': MarketplaceOrder.query.filter_by(account_id=account.id, status='shipped').count(),
+            'total': MarketplaceOrder.query.filter_by(account_id=account.id).count(),
+            'revenue': db.session.query(db.func.sum(MarketplaceOrder.price)).filter(MarketplaceOrder.account_id == account.id).scalar() or 0,
+            'last_sync': account.last_sync
+        }
+        
+        result['accounts'].append(account_stats)
+        
+        # Суммируем общую статистику
+        result['total']['new'] += account_stats['new']
+        result['total']['processing'] += account_stats['processing']
+        result['total']['ready'] += account_stats['ready']
+        result['total']['shipped'] += account_stats['shipped']
+        result['total']['total_orders'] += account_stats['total']
+        result['total']['total_revenue'] += account_stats['revenue']
+    
+    return jsonify(result)
+
 @app.route('/search')
 def search():
     q = request.args.get('q', '')
@@ -1028,6 +1639,8 @@ def check_db():
         
         carpet_count = Carpet.query.count()
         scan_count = ScanLog.query.count()
+        order_count = MarketplaceOrder.query.count()
+        account_count = MarketplaceAccount.query.count()
         
         return jsonify({
             'status': 'ok',
@@ -1035,6 +1648,8 @@ def check_db():
             'data_folder': DATA_FOLDER,
             'carpets_count': carpet_count,
             'scans_count': scan_count,
+            'orders_count': order_count,
+            'accounts_count': account_count,
             'file_exists': os.path.exists(DB_PATH),
             'file_size': os.path.getsize(DB_PATH) if os.path.exists(DB_PATH) else 0
         })
