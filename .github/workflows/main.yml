@@ -38,26 +38,21 @@ jobs:
           --hidden-import=reportlab.lib.utils `
           --hidden-import=requests `
           --hidden-import=urllib3 `
-          --hidden-import=urllib3.poolmanager `
-          --hidden-import=urllib3.response `
-          --hidden-import=urllib3.connection `
-          --hidden-import=urllib3.connectionpool `
-          --hidden-import=urllib3.util `
-          --hidden-import=urllib3.util.retry `
-          --hidden-import=urllib3.util.timeout `
-          --hidden-import=urllib3.util.url `
           --hidden-import=chardet `
-          --hidden-import=chardet.universaldetector `
           --hidden-import=idna `
           --hidden-import=certifi `
-          --hidden-import=json `
-          --hidden-import=datetime `
-          --hidden-import=collections `
-          --hidden-import=collections.abc `
           --collect-all=requests `
           --collect-all=urllib3 `
-          --collect-all=chardet `
           app.py
+        
+        # Проверяем, что templates добавлены
+        echo "=== Проверка содержимого dist ==="
+        dir dist
+        
+        # Распаковываем EXE для проверки (опционально)
+        # cd dist
+        # CarpetManager.exe --debug
+        # cd ..
     
     - name: Upload artifact
       uses: actions/upload-artifact@v4
