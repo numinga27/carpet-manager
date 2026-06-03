@@ -8,24 +8,24 @@ on:
 jobs:
   build:
     runs-on: windows-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-    
+
     - name: Setup Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
-    
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install pyinstaller
         cd web_app
         pip install flask flask-sqlalchemy qrcode pillow reportlab requests urllib3 certifi chardet idna
-    
-    - name: Build with PyInstaller
+
+    - name: Build with PyInstaller (onedir)
       run: |
         cd web_app
         pyinstaller --onedir --windowed --name="CarpetManager" `
@@ -43,17 +43,17 @@ jobs:
           --collect-all=requests `
           --collect-all=urllib3 `
           app.py
-    
-    - name: Copy templates to output
+
+    - name: Copy templates to output directory
       run: |
         xcopy web_app\templates dist\CarpetManager\templates /E /I /Y
-    
-    - name: Create ZIP archive
+
+    - name: Create ZIP archive with full application
       run: |
         Compress-Archive -Path dist\CarpetManager -DestinationPath CarpetManager.zip
-    
-    - name: Upload artifact
+
+    - name: Upload artifact (ZIP with EXE + templates)
       uses: actions/upload-artifact@v4
       with:
-        name: CarpetManager
+        name: CarpetManagerPackage
         path: CarpetManager.zip
