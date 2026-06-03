@@ -42,22 +42,24 @@ jobs:
           app.py
 
     - name: Copy templates
+      shell: cmd
       run: |
         if exist web_app\templates (
           xcopy web_app\templates dist\CarpetManager\templates /E /I /Y
         ) else (
-          echo "Папка web_app\templates не найдена!"
+          echo Папка web_app\templates не найдена!
           exit 1
         )
 
     - name: List output
+      shell: cmd
       run: |
         dir dist
         dir dist\CarpetManager
 
     - name: Create ZIP
       run: |
-        powershell Compress-Archive -Path "dist\CarpetManager\*" -DestinationPath "CarpetManager.zip" -Force
+        Compress-Archive -Path "dist\CarpetManager" -DestinationPath "CarpetManager.zip" -Force
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
