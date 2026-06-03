@@ -14,6 +14,31 @@ from collections import defaultdict
 import requests
 import json
 import traceback
+# ========== НАСТРОЙКА ЛОГИРОВАНИЯ В ФАЙЛ ==========
+import logging
+
+# Определяем путь к лог-файлу
+if getattr(sys, 'frozen', False):
+    log_dir = os.path.dirname(sys.executable)
+else:
+    log_dir = os.path.dirname(__file__)
+log_file = os.path.join(log_dir, 'carpet_manager.log')
+
+# Настройка логгера
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    handlers=[
+        logging.FileHandler(log_file, encoding='utf-8'),
+        logging.StreamHandler()  # дублируем в консоль (если запущено с консолью)
+    ]
+)
+logger = logging.getLogger(__name__)
+logger.info("="*60)
+logger.info("Программа Ковровый учёт запущена")
+logger.info(f"Режим: {'EXE' if getattr(sys, 'frozen', False) else 'скрипт'}")
+logger.info(f"Путь к исполняемому файлу: {sys.executable}")
+logger.info(f"Лог-файл: {log_file}")
 
 # ========== ПОДДЕРЖКА РУССКОГО ШРИФТА ДЛЯ PDF ==========
 try:
