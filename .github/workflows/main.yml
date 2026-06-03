@@ -29,7 +29,6 @@ jobs:
       run: |
         cd web_app
         pyinstaller --onedir --windowed --name="CarpetManager" `
-          --add-data "templates;templates" `
           --hidden-import=reportlab `
           --hidden-import=reportlab.pdfgen `
           --hidden-import=reportlab.lib `
@@ -45,12 +44,16 @@ jobs:
           --collect-all=urllib3 `
           app.py
     
-    - name: Create ZIP package
+    - name: Copy templates to output
       run: |
-        Compress-Archive -Path web_app/dist/CarpetManager -DestinationPath CarpetManager.zip
+        xcopy web_app\templates dist\CarpetManager\templates /E /I /Y
+    
+    - name: Create ZIP archive
+      run: |
+        Compress-Archive -Path dist\CarpetManager -DestinationPath CarpetManager.zip
     
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: CarpetManagerPackage
+        name: CarpetManager
         path: CarpetManager.zip

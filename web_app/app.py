@@ -39,7 +39,27 @@ logger.info("Программа Ковровый учёт запущена")
 logger.info(f"Режим: {'EXE' if getattr(sys, 'frozen', False) else 'скрипт'}")
 logger.info(f"Путь к исполняемому файлу: {sys.executable}")
 logger.info(f"Лог-файл: {log_file}")
+# ========== ОПРЕДЕЛЕНИЕ ПУТЕЙ ДЛЯ ШАБЛОНОВ ==========
+if getattr(sys, 'frozen', False):
+    # Режим EXE
+    if hasattr(sys, '_MEIPASS'):
+        # Для --onefile: временная папка распаковки
+        base_path = sys._MEIPASS
+        logger.info(f"Режим: --onefile, base_path = {base_path}")
+    else:
+        # Для --onedir: папка, где лежит EXE
+        base_path = os.path.dirname(sys.executable)
+        logger.info(f"Режим: --onedir, base_path = {base_path}")
+else:
+    # Режим скрипта
+    base_path = os.path.dirname(__file__)
+    logger.info(f"Режим: скрипт, base_path = {base_path}")
 
+template_folder = os.path.join(base_path, 'templates')
+logger.info(f"Папка шаблонов: {template_folder}")
+logger.info(f"Папка шаблонов существует: {os.path.exists(template_folder)}")
+
+app = Flask(__name__, template_folder=template_folder)
 # ========== ПОДДЕРЖКА РУССКОГО ШРИФТА ДЛЯ PDF ==========
 try:
     from reportlab.pdfbase import pdfmetrics
