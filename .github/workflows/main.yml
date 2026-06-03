@@ -28,7 +28,7 @@ jobs:
     - name: Build with PyInstaller
       run: |
         cd web_app
-        pyinstaller --onefile --windowed --name="CarpetManager" `
+        pyinstaller --onedir --windowed --name="CarpetManager" `
           --add-data "templates;templates" `
           --hidden-import=reportlab `
           --hidden-import=reportlab.pdfgen `
@@ -44,18 +44,13 @@ jobs:
           --collect-all=requests `
           --collect-all=urllib3 `
           app.py
-        
-        # Проверяем, что templates добавлены
-        echo "=== Проверка содержимого dist ==="
-        dir dist
-        
-        # Распаковываем EXE для проверки (опционально)
-        # cd dist
-        # CarpetManager.exe --debug
-        # cd ..
+    
+    - name: Create ZIP package
+      run: |
+        Compress-Archive -Path web_app/dist/CarpetManager -DestinationPath CarpetManager.zip
     
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: CarpetManager
-        path: web_app/dist/CarpetManager.exe
+        name: CarpetManagerPackage
+        path: CarpetManager.zip
