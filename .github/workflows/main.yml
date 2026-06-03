@@ -10,11 +10,8 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Setup Python
-      uses: actions/setup-python@v5
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
       with:
         python-version: '3.11'
 
@@ -25,7 +22,7 @@ jobs:
         cd web_app
         pip install flask flask-sqlalchemy qrcode pillow reportlab requests urllib3 certifi chardet idna
 
-    - name: Build with PyInstaller (onedir)
+    - name: Build with PyInstaller
       run: |
         cd web_app
         pyinstaller --onedir --windowed --name="CarpetManager" `
@@ -44,15 +41,25 @@ jobs:
           --collect-all=urllib3 `
           app.py
 
-    - name: Copy templates to output directory
+    - name: Copy templates
       run: |
-        xcopy web_app\templates dist\CarpetManager\templates /E /I /Y
+        if exist web_app\templates (
+          xcopy web_app\templates dist\CarpetManager\templates /E /I /Y
+        ) else (
+          echo "Папка web_app\templates не найдена!"
+          exit 1
+        )
 
-    - name: Create ZIP archive with full application
+    - name: List output
       run: |
-        Compress-Archive -Path dist\CarpetManager -DestinationPath CarpetManager.zip
+        dir dist
+        dir dist\CarpetManager
 
-    - name: Upload artifact (ZIP with EXE + templates)
+    - name: Create ZIP
+      run: |
+        powershell Compress-Archive -Path "dist\CarpetManager\*" -DestinationPath "CarpetManager.zip" -Force
+
+    - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
         name: CarpetManagerPackage
