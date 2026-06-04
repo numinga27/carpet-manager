@@ -250,6 +250,48 @@ class MarketplaceSyncLog(db.Model):
     orders_new = db.Column(db.Integer)
     error_message = db.Column(db.Text)
     status = db.Column(db.String(20))
+class WBAnalyticsCache(db.Model):
+    """Кэш аналитики Wildberries"""
+    id = db.Column(db.Integer, primary_key=True)
+    account_id = db.Column(db.Integer, db.ForeignKey('marketplace_account.id'))
+    nm_id = db.Column(db.Integer)  # Артикул WB
+    data = db.Column(db.Text)  # JSON с данными аналитики
+    period_start = db.Column(db.String(20))
+    period_end = db.Column(db.String(20))
+    cached_at = db.Column(db.String(20))
+    
+class WBProductAnalytics(db.Model):
+    """Аналитика по товарам Wildberries"""
+    id = db.Column(db.Integer, primary_key=True)
+    account_id = db.Column(db.Integer, db.ForeignKey('marketplace_account.id'))
+    nm_id = db.Column(db.Integer)
+    product_name = db.Column(db.String(200))
+    brand_name = db.Column(db.String(100))
+    
+    # Текущий период
+    views = db.Column(db.Integer, default=0)  # Просмотры
+    cart_adds = db.Column(db.Integer, default=0)  # Добавления в корзину
+    orders = db.Column(db.Integer, default=0)  # Заказы
+    sales = db.Column(db.Integer, default=0)  # Продажи (выкупы)
+    cancellations = db.Column(db.Integer, default=0)  # Отмены
+    returns = db.Column(db.Integer, default=0)  # Возвраты
+    
+    # Прошлый период (для сравнения)
+    past_views = db.Column(db.Integer, default=0)
+    past_cart_adds = db.Column(db.Integer, default=0)
+    past_orders = db.Column(db.Integer, default=0)
+    past_sales = db.Column(db.Integer, default=0)
+    
+    # Показатели конверсии
+    conversion_to_cart = db.Column(db.Float, default=0)  # Просмотр → Корзина
+    conversion_to_order = db.Column(db.Float, default=0)  # Просмотр → Заказ
+    conversion_to_sale = db.Column(db.Float, default=0)  # Просмотр → Продажа
+    
+    period_start = db.Column(db.String(20))
+    period_end = db.Column(db.String(20))
+    updated_at = db.Column(db.String(20))
+    
+    carpet_id = db.Column(db.String(50), db.ForeignKey('carpet.carpet_id'), nullable=True)    
 
 # ========== МИГРАЦИЯ БД ==========
 DB_VERSION = 2
@@ -666,6 +708,141 @@ def sync_account_orders(account_id):
 def sync_orders():
     """Перенаправление со старого маршрута на новый"""
     return redirect(url_for('sync_all_orders'))
+def get_wb_analytics(api_key, account_id, period_days=30):
+    """
+    Получение аналитики по товарам Wildberries
+    period_days: за сколько дней получить аналитику (макс 365)
+    """
+    try:
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=period_days)
+        
+        # Форматируем даты для API
+        date_from = start_date.strftime("%Y-%m-%d")
+        date_to = end_date.strftime("%Y-%m-%d")
+        
+        # Получаем аналитику по всем товарам
+        url = "https://seller-analytics-api.wildberries.ru/api/analytics/v3/sales-funnel/products"
+        
+        headers = {
+            "Authorization": api_key,
+            "Content-Type": "application/json"
+        }
+        
+        # Параметры запроса
+        payload = {
+            "dateFrom": date_from,
+            "dateTo": date_to,
+            "limit": 1000,
+            "offset": 0
+        }
+        
+        logger.info(f"Запрос аналитики WB: {date_from} - {date_to}")
+        
+        response = requests.post(url, headers=headers, json=payload, timeout=60)
+        
+        if response.status_code == 200:
+            data = response.json()
+            products = data.get('data', {}).get('products', [])
+            logger.info(f"Получено {len(products)} товаров в аналитике")
+            return products
+        else:
+            logger.error(f"Ошибка WB Analytics: {response.status_code} - {response.text[:200]}")
+            return []
+            
+    except Exception as e:
+        logger.exception(f"Ошибка получения аналитики WB: {e}")
+        return []
+
+def sync_wb_analytics(account_id):
+    """Синхронизация аналитики Wildberries"""
+    acc = db.session.get(MarketplaceAccount, account_id)
+    if not acc or not acc.is_active or acc.marketplace != 'wb':
+        return 0
+    
+    try:
+        products = get_wb_analytics(acc.api_key, account_id, 30)
+        
+        if not products:
+            return 0
+        
+        updated = 0
+        new = 0
+        
+        for prod in products:
+            nm_id = prod.get('nmId')
+            if not nm_id:
+                continue
+            
+            # Ищем существующую запись
+            analytic = WBProductAnalytics.query.filter_by(
+                account_id=account_id,
+                nm_id=nm_id
+            ).first()
+            
+            if not analytic:
+                analytic = WBProductAnalytics(
+                    account_id=account_id,
+                    nm_id=nm_id,
+                    product_name=prod.get('productName', ''),
+                    brand_name=prod.get('brandName', '')
+                )
+                new += 1
+            
+            # Данные текущего периода
+            selected = prod.get('selectedPeriod', {})
+            past = prod.get('pastPeriod', {})
+            
+            analytic.views = selected.get('views', 0)
+            analytic.cart_adds = selected.get('carts', 0)
+            analytic.orders = selected.get('orders', 0)
+            analytic.sales = selected.get('sales', 0)
+            analytic.cancellations = selected.get('cancellations', 0)
+            analytic.returns = selected.get('returns', 0)
+            
+            analytic.past_views = past.get('views', 0)
+            analytic.past_cart_adds = past.get('carts', 0)
+            analytic.past_orders = past.get('orders', 0)
+            analytic.past_sales = past.get('sales', 0)
+            
+            # Рассчитываем конверсию
+            if analytic.views > 0:
+                analytic.conversion_to_cart = round((analytic.cart_adds / analytic.views) * 100, 2)
+                analytic.conversion_to_order = round((analytic.orders / analytic.views) * 100, 2)
+                analytic.conversion_to_sale = round((analytic.sales / analytic.views) * 100, 2)
+            
+            analytic.period_start = selected.get('dateFrom', '')
+            analytic.period_end = selected.get('dateTo', '')
+            analytic.updated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            # Пытаемся связать с ковром по артикулу
+            carpet = Carpet.query.filter_by(carpet_id=f"CARPET-{nm_id:04d}").first()
+            if carpet:
+                analytic.carpet_id = carpet.carpet_id
+            
+            db.session.add(analytic)
+            updated += 1
+        
+        db.session.commit()
+        
+        # Кэшируем время последней синхронизации
+        cache = WBAnalyticsCache.query.filter_by(account_id=account_id).first()
+        if not cache:
+            cache = WBAnalyticsCache(account_id=account_id)
+        
+        cache.cached_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        cache.period_start = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+        cache.period_end = datetime.now().strftime("%Y-%m-%d")
+        db.session.add(cache)
+        db.session.commit()
+        
+        flash(f'📊 WB Аналитика: {new} новых, {updated} обновлено', 'success')
+        return updated
+        
+    except Exception as e:
+        logger.exception(f"Ошибка синхронизации аналитики: {e}")
+        flash(f'❌ Ошибка синхронизации аналитики WB: {str(e)[:200]}', 'error')
+        return 0
 # ========== ИНИЦИАЛИЗАЦИЯ ==========
 with app.app_context():
     init_database()
@@ -714,7 +891,64 @@ def index():
         ready_orders_count=MarketplaceOrder.query.filter_by(status='ready').count(),
         accounts_count=MarketplaceAccount.query.filter_by(is_active=True).count()
     )
+@app.route('/wb_analytics')
+def wb_analytics():
+    """Страница аналитики Wildberries"""
+    accounts = MarketplaceAccount.query.filter_by(marketplace='wb', is_active=True).all()
+    
+    # Получаем аналитику
+    analytics = WBProductAnalytics.query.all()
+    
+    # Агрегированная статистика
+    total_stats = {
+        'total_views': sum(a.views for a in analytics),
+        'total_cart_adds': sum(a.cart_adds for a in analytics),
+        'total_orders': sum(a.orders for a in analytics),
+        'total_sales': sum(a.sales for a in analytics),
+        'avg_conversion_to_cart': 0,
+        'avg_conversion_to_order': 0,
+        'avg_conversion_to_sale': 0
+    }
+    
+    if total_stats['total_views'] > 0:
+        total_stats['avg_conversion_to_cart'] = round((total_stats['total_cart_adds'] / total_stats['total_views']) * 100, 2)
+        total_stats['avg_conversion_to_order'] = round((total_stats['total_orders'] / total_stats['total_views']) * 100, 2)
+        total_stats['avg_conversion_to_sale'] = round((total_stats['total_sales'] / total_stats['total_views']) * 100, 2)
+    
+    # Топ товаров
+    top_by_views = sorted(analytics, key=lambda x: x.views, reverse=True)[:10]
+    top_by_sales = sorted(analytics, key=lambda x: x.sales, reverse=True)[:10]
+    top_by_conversion = sorted([a for a in analytics if a.views > 50], key=lambda x: x.conversion_to_sale, reverse=True)[:10]
+    
+    return render_template('wb_analytics.html',
+                          accounts=accounts,
+                          analytics=analytics,
+                          total_stats=total_stats,
+                          top_by_views=top_by_views,
+                          top_by_sales=top_by_sales,
+                          top_by_conversion=top_by_conversion)
 
+@app.route('/sync_wb_analytics/<int:account_id>')
+def sync_wb_analytics_route(account_id):
+    """Синхронизация аналитики WB"""
+    sync_wb_analytics(account_id)
+    return redirect(url_for('wb_analytics'))
+
+@app.route('/sync_all_wb_analytics')
+def sync_all_wb_analytics():
+    """Синхронизация аналитики всех аккаунтов WB"""
+    accounts = MarketplaceAccount.query.filter_by(marketplace='wb', is_active=True).all()
+    for acc in accounts:
+        sync_wb_analytics(acc.id)
+    return redirect(url_for('wb_analytics'))
+
+@app.route('/wb_product_detail/<int:nm_id>')
+def wb_product_detail(nm_id):
+    """Детальная страница товара"""
+    analytic = WBProductAnalytics.query.filter_by(nm_id=nm_id).first_or_404()
+    
+    # Динамика за последние дни (можно добавить)
+    return render_template('wb_product_detail.html', product=analytic)
 @app.route('/forecast')
 def forecast_page():
     try:

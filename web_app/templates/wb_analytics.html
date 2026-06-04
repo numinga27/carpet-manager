@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Аналитика Wildberries</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+            color: white;
+            padding: 25px;
+            text-align: center;
+        }
+        .header a { color: white; text-decoration: none; }
+        .content { padding: 25px; }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+        }
+        .stat-card h2 { font-size: 2em; }
+        .stat-card .trend-up { color: #27ae60; }
+        .stat-card .trend-down { color: #e74c3c; }
+        
+        .btn-sync {
+            background: #3498db;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th { background: #f8f9fa; }
+        
+        .conversion-high { color: #27ae60; font-weight: bold; }
+        .conversion-medium { color: #f39c12; }
+        .conversion-low { color: #e74c3c; }
+        
+        .product-link {
+            cursor: pointer;
+            color: #9b59b6;
+            text-decoration: none;
+        }
+        .product-link:hover { text-decoration: underline; }
+        
+        .back-btn {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 20px;
+            background: #95a5a6;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+        }
+        
+        @media (max-width: 768px) {
+            .stats-grid { grid-template-columns: 1fr; }
+            table { font-size: 12px; display: block; overflow-x: auto; }
+            th, td { padding: 8px; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>📊 Wildberries Аналитика</h1>
+        <p>Данные о просмотрах, корзинах, заказах и продажах</p>
+        <a href="/">← На главную</a>
+    </div>
+    
+    <div class="content">
+        <button class="btn-sync" onclick="syncAllAnalytics()">🔄 Синхронизировать аналитику</button>
+        
+        <!-- Общая статистика -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h2>{{ "{:,.0f}".format(total_stats.total_views).replace(',', ' ') }}</h2>
+                <p>👁️ Просмотров</p>
+            </div>
+            <div class="stat-card">
+                <h2>{{ "{:,.0f}".format(total_stats.total_cart_adds).replace(',', ' ') }}</h2>
+                <p>🛒 Добавлений в корзину</p>
+            </div>
+            <div class="stat-card">
+                <h2>{{ "{:,.0f}".format(total_stats.total_orders).replace(',', ' ') }}</h2>
+                <p>📦 Заказов</p>
+            </div>
+            <div class="stat-card">
+                <h2>{{ "{:,.0f}".format(total_stats.total_sales).replace(',', ' ') }}</h2>
+                <p>✅ Продаж</p>
+            </div>
+        </div>
+        
+        <!-- Конверсия -->
+        <div class="stats-grid">
+            <div class="stat-card" style="background: #27ae60;">
+                <h2>{{ total_stats.avg_conversion_to_cart }}%</h2>
+                <p>Просмотр → Корзина</p>
+            </div>
+            <div class="stat-card" style="background: #f39c12;">
+                <h2>{{ total_stats.avg_conversion_to_order }}%</h2>
+                <p>Просмотр → Заказ</p>
+            </div>
+            <div class="stat-card" style="background: #e74c3c;">
+                <h2>{{ total_stats.avg_conversion_to_sale }}%</h2>
+                <p>Просмотр → Продажа</p>
+            </div>
+        </div>
+        
+        <!-- Топ товаров -->
+        <h2>🏆 Топ товаров по просмотрам</h2>
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Артикул</th>
+                        <th>Название</th>
+                        <th>Просмотры</th>
+                        <th>Корзина</th>
+                        <th>Заказы</th>
+                        <th>Продажи</th>
+                        <th>Конверсия</th>
+                        <th>Связь</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in top_by_views %}
+                    <tr>
+                        <td><a href="/wb_product_detail/{{ item.nm_id }}" class="product-link">{{ item.nm_id }}</a></td>
+                        <td>{{ item.product_name[:50] }}</td>
+                        <td>{{ item.views }}</td>
+                        <td>{{ item.cart_adds }}</td>
+                        <td>{{ item.orders }}</td>
+                        <td>{{ item.sales }}</td>
+                        <td class="{% if item.conversion_to_sale > 5 %}conversion-high{% elif item.conversion_to_sale > 2 %}conversion-medium{% else %}conversion-low{% endif %}">
+                            {{ item.conversion_to_sale }}%
+                        </td>
+                        <td>{% if item.carpet_id %}✅ {{ item.carpet_id }}{% else %}—{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <h2>🔥 Топ товаров по продажам</h2>
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Артикул</th>
+                        <th>Название</th>
+                        <th>Продажи</th>
+                        <th>Просмотры</th>
+                        <th>Конверсия</th>
+                        <th>Связь</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in top_by_sales %}
+                    <tr>
+                        <td><a href="/wb_product_detail/{{ item.nm_id }}" class="product-link">{{ item.nm_id }}</a></td>
+                        <td>{{ item.product_name[:50] }}</td>
+                        <td><strong>{{ item.sales }}</strong></td>
+                        <td>{{ item.views }}</td>
+                        <td class="{% if item.conversion_to_sale > 5 %}conversion-high{% elif item.conversion_to_sale > 2 %}conversion-medium{% else %}conversion-low{% endif %}">
+                            {{ item.conversion_to_sale }}%
+                        </td>
+                        <td>{% if item.carpet_id %}✅ {{ item.carpet_id }}{% else %}—{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <h2>📈 Топ товаров по конверсии</h2>
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Артикул</th>
+                        <th>Название</th>
+                        <th>Конверсия</th>
+                        <th>Просмотры</th>
+                        <th>Продажи</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in top_by_conversion %}
+                    <tr>
+                        <td><a href="/wb_product_detail/{{ item.nm_id }}" class="product-link">{{ item.nm_id }}</a></td>
+                        <td>{{ item.product_name[:50] }}</td>
+                        <td class="conversion-high">{{ item.conversion_to_sale }}%</td>
+                        <td>{{ item.views }}</td>
+                        <td>{{ item.sales }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <a href="/" class="back-btn">← На главную</a>
+    </div>
+</div>
+
+<script>
+    async function syncAllAnalytics() {
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = '⏳ Синхронизация...';
+        btn.disabled = true;
+        
+        try {
+            const response = await fetch('/sync_all_wb_analytics');
+            window.location.reload();
+        } catch(e) {
+            alert('Ошибка синхронизации');
+            btn.textContent = originalText;
+            btn.disabled = false;
+        }
+    }
+</script>
+</body>
+</html>

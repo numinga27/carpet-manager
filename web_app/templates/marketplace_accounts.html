@@ -55,6 +55,15 @@
             cursor: pointer;
             font-size: 14px;
         }
+        .sync-analytics-all-btn {
+            background: #e67e22;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 14px;
+        }
         
         .flash-messages {
             margin-bottom: 20px;
@@ -164,6 +173,14 @@
             border-radius: 8px;
             cursor: pointer;
         }
+        .btn-analytics {
+            background: #e67e22;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
         
         .back-btn {
             display: inline-block;
@@ -203,6 +220,8 @@
             color: #888;
             display: flex;
             justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
         }
         
         @media (max-width: 768px) {
@@ -210,6 +229,8 @@
             .total-stats { grid-template-columns: repeat(2, 1fr); }
             .btn-group-header { flex-direction: column; }
             .btn-group-header button { width: 100%; }
+            .btn-group { flex-direction: column; }
+            .btn-group button { width: 100%; }
         }
         
         /* Модальное окно */
@@ -300,7 +321,8 @@
         
         <div class="btn-group-header">
             <button class="add-btn" onclick="openAddModal()">➕ Добавить аккаунт</button>
-            <button class="sync-all-btn" onclick="syncAllAccounts()">🔄 Синхронизировать все аккаунты</button>
+            <button class="sync-all-btn" onclick="syncAllAccounts()">🔄 Синхронизировать все заказы</button>
+            <button class="sync-analytics-all-btn" onclick="syncAllAnalytics()">📊 Синхронизировать WB аналитику</button>
         </div>
         
         <!-- Общая статистика -->
@@ -351,11 +373,17 @@
             </div>
             
             <div class="account-footer">
-                <span>🕐 Последняя синхр.: {{ account.last_sync or 'никогда' }}</span>
+                <span>🕐 Последняя синхр. заказов: {{ account.last_sync or 'никогда' }}</span>
+                {% if account.marketplace == 'wb' %}
+                <span>📊 WB Аналитика доступна</span>
+                {% endif %}
             </div>
             
             <div class="btn-group">
-                <button class="btn-sync" onclick="syncAccount({{ account.id }}, this)">🔄 Синхронизировать</button>
+                <button class="btn-sync" onclick="syncAccount({{ account.id }})">🔄 Синхр. заказы</button>
+                {% if account.marketplace == 'wb' %}
+                <button class="btn-analytics" onclick="syncAnalytics({{ account.id }})">📊 Синхр. аналитику</button>
+                {% endif %}
                 <button class="btn-edit" onclick="window.location.href='/edit_marketplace_account/{{ account.id }}'">✏️ Редактировать</button>
                 <button class="btn-delete" onclick="deleteAccount({{ account.id }})">🗑️ Удалить</button>
             </div>
@@ -419,38 +447,24 @@
         document.getElementById('addModal').style.display = 'none';
     }
     
-    async function syncAccount(accountId, button) {
-        const originalText = button.textContent;
-        button.textContent = '⏳ Синхронизация...';
-        button.disabled = true;
-        
-        try {
-            const response = await fetch(`/sync_account/${accountId}`);
-            // Просто перезагружаем страницу - сервер покажет flash-сообщения
-            window.location.reload();
-        } catch(e) {
-            console.error('Ошибка:', e);
-            alert('❌ Ошибка соединения с сервером');
-            button.textContent = originalText;
-            button.disabled = false;
-        }
+    // Простая синхронизация заказов - просто переходим по ссылке
+    function syncAccount(accountId) {
+        window.location.href = '/sync_account/' + accountId;
     }
     
-    async function syncAllAccounts() {
-        const btn = document.querySelector('.sync-all-btn');
-        const originalText = btn.textContent;
-        btn.textContent = '⏳ Синхронизация всех...';
-        btn.disabled = true;
-        
-        try {
-            const response = await fetch('/sync_all_orders');
-            window.location.reload();
-        } catch(e) {
-            console.error('Ошибка:', e);
-            alert('❌ Ошибка соединения с сервером');
-            btn.textContent = originalText;
-            btn.disabled = false;
-        }
+    // Синхронизация аналитики
+    function syncAnalytics(accountId) {
+        window.location.href = '/sync_wb_analytics/' + accountId;
+    }
+    
+    // Синхронизация всех заказов
+    function syncAllAccounts() {
+        window.location.href = '/sync_all_orders';
+    }
+    
+    // Синхронизация всей аналитики
+    function syncAllAnalytics() {
+        window.location.href = '/sync_all_wb_analytics';
     }
     
     function deleteAccount(id) {
