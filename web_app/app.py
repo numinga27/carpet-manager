@@ -465,55 +465,179 @@ def generate_next_id():
     return f"CARPET-{n:04d}"
 
 def sync_account_orders(account_id):
-    acc = MarketplaceAccount.query.get(account_id)
+    """Синхронизация заказов для конкретного аккаунта"""
+    acc = db.session.get(MarketplaceAccount, account_id)
     if not acc or not acc.is_active:
+        logger.warning(f"Аккаунт {account_id} не активен или не найден")
         return 0
+    
     new = 0
     orders = []
+    
     try:
         if acc.marketplace == 'wb':
-            orders = MarketplaceAPI.get_wb_orders(acc.api_key)
+            # НОВЫЙ ПРАВИЛЬНЫЙ ДОМЕН ДЛЯ WB API
+            url = "https://marketplace-api.wildberries.ru/api/v3/orders"
+            headers = {"Authorization": acc.api_key}
+            
+            # ВАЖНО: dateFrom должен быть в формате YYYY-MM-DD
+            # Используем флаг "заказы со статусом "new" (непереданные в работу)"
+            params = {
+                "dateFrom": (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d"),
+                "status": 0  # 0 - все заказы (или используйте другой статус)
+            }
+            
+            logger.info(f"Запрос к WB API: {url}")
+            logger.info(f"Параметры: {params}")
+            
+            try:
+                response = requests.get(url, headers=headers, params=params, timeout=30)
+                logger.info(f"Статус ответа WB: {response.status_code}")
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    orders = data.get('orders', [])
+                    logger.info(f"Получено заказов: {len(orders)}")
+                else:
+                    error_msg = f"WB API ошибка {response.status_code}: {response.text[:200]}"
+                    logger.error(error_msg)
+                    # Не прерываем синхронизацию, просто логируем ошибку
+                    flash(f'Ошибка синхронизации {acc.account_name}: {error_msg}', 'error')
+                    return 0
+                    
+            except requests.exceptions.Timeout:
+                logger.error("Таймаут подключения к WB API (30 секунд)")
+                flash(f'Таймаут подключения к WB API для {acc.account_name}', 'error')
+                return 0
+            except requests.exceptions.ConnectionError as e:
+                logger.error(f"Ошибка соединения с WB API: {e}")
+                flash(f'Не удалось подключиться к WB API для {acc.account_name}', 'error')
+                return 0
+            
             for o in orders:
-                if not MarketplaceOrder.query.filter_by(marketplace='wb', order_id=str(o.get('id'))).first():
+                existing = MarketplaceOrder.query.filter_by(marketplace='wb', order_id=str(o.get('id'))).first()
+                if not existing:
                     cust = o.get('customer', {})
                     deliv = o.get('delivery', {})
                     mo = MarketplaceOrder(
-                        account_id=acc.id, marketplace='wb', order_id=str(o.get('id')),
-                        customer_name=cust.get('name',''), customer_phone=cust.get('phone',''),
-                        delivery_address=deliv.get('address',''), status='new',
-                        ordered_at=o.get('createdAt',''), price=o.get('price',0),
-                        products_info=json.dumps(o.get('products',[])), wb_supply_id=o.get('supplyId','')
+                        account_id=acc.id, 
+                        marketplace='wb', 
+                        order_id=str(o.get('id')),
+                        customer_name=cust.get('name', ''), 
+                        customer_phone=cust.get('phone', ''),
+                        delivery_address=deliv.get('address', ''), 
+                        status='new',
+                        ordered_at=o.get('createdAt', ''), 
+                        price=o.get('price', 0),
+                        products_info=json.dumps(o.get('products', [])), 
+                        wb_supply_id=o.get('supplyId', '')
                     )
                     db.session.add(mo)
                     new += 1
-        else:
-            orders = MarketplaceAPI.get_ozon_orders(acc.api_key, acc.client_id)
+                    
+        elif acc.marketplace == 'ozon':
+            url = "https://api-seller.ozon.ru/v3/posting/fbs/list"
+            headers = {
+                "Api-Key": acc.api_key, 
+                "Client-Id": acc.client_id, 
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "dir": "desc",
+                "filter": {
+                    "since": (datetime.now() - timedelta(days=30)).isoformat(),
+                    "status": "awaiting_packaging"
+                },
+                "limit": 100
+            }
+            
+            logger.info(f"Запрос к Ozon API")
+            
+            try:
+                response = requests.post(url, headers=headers, json=payload, timeout=30)
+                logger.info(f"Статус ответа Ozon: {response.status_code}")
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    orders = data.get('result', {}).get('postings', [])
+                    logger.info(f"Получено заказов: {len(orders)}")
+                else:
+                    error_msg = f"Ozon API ошибка {response.status_code}: {response.text[:200]}"
+                    logger.error(error_msg)
+                    flash(f'Ошибка синхронизации {acc.account_name}: {error_msg}', 'error')
+                    return 0
+                    
+            except requests.exceptions.Timeout:
+                logger.error("Таймаут подключения к Ozon API")
+                flash(f'Таймаут подключения к Ozon API для {acc.account_name}', 'error')
+                return 0
+            except requests.exceptions.ConnectionError as e:
+                logger.error(f"Ошибка соединения с Ozon API: {e}")
+                flash(f'Не удалось подключиться к Ozon API для {acc.account_name}', 'error')
+                return 0
+            
             for o in orders:
-                if not MarketplaceOrder.query.filter_by(marketplace='ozon', order_id=str(o.get('posting_number'))).first():
+                if not MarketplaceOrder.query.filter_by(marketplace='ozon', order_id=o.get('posting_number')).first():
                     cust = o.get('customer', {})
                     deliv = o.get('delivery', {})
                     prods = o.get('products', [])
                     mo = MarketplaceOrder(
-                        account_id=acc.id, marketplace='ozon', order_id=o.get('posting_number'),
-                        customer_name=cust.get('name',''), customer_phone=cust.get('phone',''),
-                        delivery_address=deliv.get('address',{}).get('address_txt',''), status='new',
-                        ordered_at=o.get('created_at',''),
-                        price=sum(p.get('price',0)*p.get('quantity',1) for p in prods),
-                        products_info=json.dumps(prods), ozon_posting_number=o.get('posting_number')
+                        account_id=acc.id, 
+                        marketplace='ozon', 
+                        order_id=o.get('posting_number'),
+                        customer_name=cust.get('name', ''), 
+                        customer_phone=cust.get('phone', ''),
+                        delivery_address=deliv.get('address', {}).get('address_txt', ''), 
+                        status='new',
+                        ordered_at=o.get('created_at', ''),
+                        price=sum(p.get('price', 0) * p.get('quantity', 1) for p in prods),
+                        products_info=json.dumps(prods), 
+                        ozon_posting_number=o.get('posting_number')
                     )
                     db.session.add(mo)
                     new += 1
+        
         acc.last_sync = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         db.session.commit()
-        db.session.add(MarketplaceSyncLog(account_id=acc.id, sync_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                                         orders_found=len(orders), orders_new=new, status='success'))
+        
+        # Логируем успешную синхронизацию
+        sync_log = MarketplaceSyncLog(
+            account_id=acc.id,
+            sync_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            orders_found=len(orders),
+            orders_new=new,
+            status='success'
+        )
+        db.session.add(sync_log)
         db.session.commit()
+        
+        if new > 0:
+            flash(f'Синхронизация {acc.account_name}: получено {new} новых заказов', 'success')
+        else:
+            flash(f'Синхронизация {acc.account_name}: новых заказов нет', 'info')
+        
+        logger.info(f"Синхронизация аккаунта {acc.account_name} завершена. Новых заказов: {new}")
+        
     except Exception as e:
-        db.session.add(MarketplaceSyncLog(account_id=acc.id, sync_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                                         error_message=str(e), status='error'))
+        error_msg = str(e)
+        logger.exception(f"Ошибка синхронизации аккаунта {acc.account_name}: {error_msg}")
+        
+        sync_log = MarketplaceSyncLog(
+            account_id=acc.id,
+            sync_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            error_message=error_msg,
+            status='error'
+        )
+        db.session.add(sync_log)
         db.session.commit()
+        
+        flash(f'Ошибка синхронизации {acc.account_name}: {error_msg[:200]}', 'error')
+    
     return new
-
+@app.route('/sync_orders')
+def sync_orders():
+    """Перенаправление со старого маршрута на новый"""
+    return redirect(url_for('sync_all_orders'))
 # ========== ИНИЦИАЛИЗАЦИЯ ==========
 with app.app_context():
     init_database()
