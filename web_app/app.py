@@ -950,74 +950,122 @@ def generate_qr_pdf():
 # ========== ОСНОВНАЯ ФУНКЦИЯ ГЕНЕРАЦИИ PDF С QR НА ВЕСЬ ЛИСТ (УМЕНЬШЕН ДО 85%) ==========
 @app.route('/generate_single_pages_pdf')
 def generate_single_pages_pdf():
-    t = request.args.get('carpet_type_id','')
-    c = request.args.get('craftsman_id','')
-    s = request.args.get('status','')
-    q = Carpet.query
-    if t: q = q.filter(Carpet.carpet_type_id == t)
-    if c: q = q.filter(Carpet.craftsman_id == c)
-    if s: q = q.filter(Carpet.status == s)
-    carpets = q.all()
+    """Генерирует PDF, где каждый QR-код на весь лист А4 (увеличенные шрифты)"""
+    carpet_type_id = request.args.get('carpet_type_id', '')
+    craftsman_id = request.args.get('craftsman_id', '')
+    status = request.args.get('status', '')
+    
+    query = Carpet.query
+    if carpet_type_id:
+        query = query.filter(Carpet.carpet_type_id == carpet_type_id)
+    if craftsman_id:
+        query = query.filter(Carpet.craftsman_id == craftsman_id)
+    if status:
+        query = query.filter(Carpet.status == status)
+    
+    carpets = query.all()
+    
     if not carpets:
-        flash('Нет ковров для печати', 'error')
+        flash('Нет ковров для печати!', 'error')
         return redirect(url_for('mass_print_qr'))
+    
     try:
         from reportlab.lib.pagesizes import A4
         from reportlab.pdfgen import canvas
         from reportlab.lib.utils import ImageReader
         from PIL import Image
+        
         buffer = io.BytesIO()
-        w, h = A4
+        width, height = A4
+        
+        # Уменьшаем до 85% от листа
         scale_factor = 0.85
-        new_w = w * scale_factor
-        new_h = h * scale_factor
-        x_offset = (w - new_w) / 2
-        y_offset = (h - new_h) / 2
-        text_height = 60
-        pdf = canvas.Canvas(buffer, pagesize=A4)
+        new_width = width * scale_factor
+        new_height = height * scale_factor
+        x_offset = (width - new_width) / 2
+        y_offset = (height - new_height) / 2
+        
+        # Увеличенная высота белой полосы для текста (было 60, стало 80)
+        text_height = 80
+        
+        c = canvas.Canvas(buffer, pagesize=A4)
+        
         for i, carpet in enumerate(carpets):
             if not carpet.qr_code_path or not os.path.exists(carpet.qr_code_path):
                 continue
+            
+            # Загружаем QR-код
             pil_img = Image.open(carpet.qr_code_path)
-            img_w, img_h = pil_img.size
-            scale = max(new_w / img_w, new_h / img_h)
-            qr_w = img_w * scale
-            qr_h = img_h * scale
-            qr_x = x_offset + (new_w - qr_w) / 2
-            qr_y = y_offset + (new_h - qr_h) / 2
-            tmp = io.BytesIO()
-            pil_img.resize((int(qr_w), int(qr_h)), Image.Resampling.LANCZOS).save(tmp, format='PNG', dpi=(300,300))
-            tmp.seek(0)
-            pdf.drawImage(ImageReader(tmp), qr_x, qr_y, qr_w, qr_h)
-            pdf.setFillColorRGB(1,1,1)
-            pdf.rect(0, 0, w, text_height, fill=1, stroke=0)
-            ct = db.session.get(CarpetType, carpet.carpet_type_id)
-            cr = db.session.get(Craftsman, carpet.craftsman_id)
-            type_name = ct.name if ct else '-'
-            craftsman_name = cr.name if cr else '-'
-            pdf.setFillColorRGB(0,0,0)
-            pdf.setFont("Helvetica-Bold", 15)
-            pdf.drawCentredString(w/2, text_height - 16, carpet.carpet_id)
+            img_width, img_height = pil_img.size
+            
+            # Масштабируем QR внутри уменьшенной области
+            scale_x = new_width / img_width
+            scale_y = new_height / img_height
+            scale = max(scale_x, scale_y)
+            
+            qr_new_width = img_width * scale
+            qr_new_height = img_height * scale
+            qr_x_offset = x_offset + (new_width - qr_new_width) / 2
+            qr_y_offset = y_offset + (new_height - qr_new_height) / 2
+            
+            # Увеличиваем разрешение и вставляем QR
+            temp_buffer = io.BytesIO()
+            pil_img_resized = pil_img.resize((int(qr_new_width), int(qr_new_height)), Image.Resampling.LANCZOS)
+            pil_img_resized.save(temp_buffer, format='PNG', dpi=(300, 300))
+            temp_buffer.seek(0)
+            
+            img = ImageReader(temp_buffer)
+            c.drawImage(img, qr_x_offset, qr_y_offset, qr_new_width, qr_new_height, preserveAspectRatio=True)
+            
+            # Белая полоса внизу для текста
+            c.setFillColorRGB(1, 1, 1)
+            c.rect(0, 0, width, text_height, fill=1, stroke=0)
+            
+            # Получаем данные о ковре
+            carpet_type = db.session.get(CarpetType, carpet.carpet_type_id)
+            type_name = carpet_type.name if carpet_type else '-'
+            craftsman = db.session.get(Craftsman, carpet.craftsman_id)
+            craftsman_name = craftsman.name if craftsman else '-'
+            
+            c.setFillColorRGB(0, 0, 0)
+            
+            # ID ковра (увеличен: было 15, стало 20)
+            c.setFont("Helvetica-Bold", 20)
+            c.drawCentredString(width / 2, text_height - 18, carpet.carpet_id)
+            
+            # Тип и швея (увеличен: было 10, стало 14)
             if FONT_REGISTERED:
-                pdf.setFont("RussianFont", 10)
+                c.setFont("RussianFont", 14)
             else:
-                pdf.setFont("Helvetica", 10)
-            pdf.drawCentredString(w/2, text_height - 32, f"{type_name} | {craftsman_name}")
-            pdf.setFont("Helvetica-Bold", 12)
+                c.setFont("Helvetica", 14)
+            c.drawCentredString(width / 2, text_height - 40, f"{type_name} | {craftsman_name}")
+            
+            # Цена (увеличен: было 12, стало 16)
+            c.setFont("Helvetica-Bold", 16)
             price_str = f"{carpet.price:,} ₽".replace(',', ' ')
-            pdf.drawCentredString(w/2, text_height - 48, price_str)
-            pdf.setFont("Helvetica", 7)
-            pdf.setFillColorRGB(0.5,0.5,0.5)
-            pdf.drawRightString(w - 20, 8, f"Страница {i+1} из {len(carpets)}")
-            pdf.showPage()
-        pdf.save()
+            c.drawCentredString(width / 2, text_height - 62, price_str)
+            
+            # Номер страницы
+            c.setFont("Helvetica", 7)
+            c.setFillColorRGB(0.5, 0.5, 0.5)
+            c.drawRightString(width - 20, 8, f"Страница {i+1} из {len(carpets)}")
+            
+            c.showPage()
+        
+        c.save()
         buffer.seek(0)
-        return send_file(buffer, mimetype='application/pdf', as_attachment=True,
-                         download_name=f'qr_full_page_{len(carpets)}_pages.pdf')
+        
+        return send_file(
+            buffer, 
+            mimetype='application/pdf', 
+            as_attachment=True, 
+            download_name=f'qr_full_page_{len(carpets)}_pages.pdf'
+        )
     except Exception as e:
         print(f"Ошибка: {e}")
+        import traceback
         traceback.print_exc()
-        return f"Ошибка: {e}", 500
+        return f"Ошибка: {str(e)}", 500
 
 # ========== МАРШРУТЫ МАРКЕТПЛЕЙСОВ ==========
 @app.route('/marketplace_accounts')
