@@ -23,8 +23,20 @@
             padding: 25px;
             text-align: center;
         }
+        .header a {
+            color: white;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 10px;
+        }
         .content { padding: 25px; }
         
+        .btn-group-header {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
         .add-btn {
             background: #27ae60;
             color: white;
@@ -32,10 +44,8 @@
             border: none;
             border-radius: 10px;
             cursor: pointer;
-            margin-bottom: 20px;
             font-size: 14px;
         }
-        
         .sync-all-btn {
             background: #3498db;
             color: white;
@@ -43,9 +53,32 @@
             border: none;
             border-radius: 10px;
             cursor: pointer;
-            margin-bottom: 20px;
-            margin-left: 10px;
             font-size: 14px;
+        }
+        
+        .flash-messages {
+            margin-bottom: 20px;
+        }
+        .flash-success {
+            background: #27ae60;
+            color: white;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        .flash-error {
+            background: #e74c3c;
+            color: white;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        .flash-info {
+            background: #3498db;
+            color: white;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
         }
         
         .account-card {
@@ -105,6 +138,7 @@
             display: flex;
             gap: 10px;
             margin-top: 15px;
+            flex-wrap: wrap;
         }
         .btn-edit {
             background: #f39c12;
@@ -152,10 +186,93 @@
             gap: 15px;
             text-align: center;
         }
+        .total-stats h3 {
+            font-size: 28px;
+            margin-bottom: 5px;
+        }
+        .total-stats small {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+        
+        .account-footer {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #e0e0e0;
+            font-size: 12px;
+            color: #888;
+            display: flex;
+            justify-content: space-between;
+        }
         
         @media (max-width: 768px) {
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
             .total-stats { grid-template-columns: repeat(2, 1fr); }
+            .btn-group-header { flex-direction: column; }
+            .btn-group-header button { width: 100%; }
+        }
+        
+        /* Модальное окно */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            padding: 25px;
+            border-radius: 20px;
+            width: 500px;
+            max-width: 90%;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .form-group small {
+            font-size: 11px;
+            color: #666;
+            display: block;
+            margin-top: 5px;
+        }
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+        .btn-save {
+            background: #27ae60;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .btn-cancel-modal {
+            background: #95a5a6;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
         }
     </style>
 </head>
@@ -164,18 +281,34 @@
     <div class="header">
         <h1>🏪 Аккаунты маркетплейсов</h1>
         <p>Управление подключениями к Ozon и Wildberries</p>
+        <a href="/">← На главную</a>
     </div>
     
     <div class="content">
-        <button class="add-btn" onclick="openAddModal()">➕ Добавить аккаунт</button>
-        <button class="sync-all-btn" onclick="syncAllAccounts()">🔄 Синхронизировать все аккаунты</button>
+        <!-- Flash сообщения -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash-{{ category if category in ['success', 'error', 'info'] else 'info' }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+        
+        <div class="btn-group-header">
+            <button class="add-btn" onclick="openAddModal()">➕ Добавить аккаунт</button>
+            <button class="sync-all-btn" onclick="syncAllAccounts()">🔄 Синхронизировать все аккаунты</button>
+        </div>
         
         <!-- Общая статистика -->
         <div class="total-stats">
             <div><h3>{{ total_stats.new }}</h3><small>🆕 Новые</small></div>
             <div><h3>{{ total_stats.processing }}</h3><small>⚙️ В обработке</small></div>
             <div><h3>{{ total_stats.ready }}</h3><small>✅ Готовы</small></div>
-            <div><h3>{{ total_stats.total_revenue|round|int }} ₽</h3><small>💰 Выручка</small></div>
+            <div><h3>{{ "{:,.0f}".format(total_stats.total_revenue).replace(',', ' ') }} ₽</h3><small>💰 Выручка</small></div>
         </div>
         
         <!-- Список аккаунтов -->
@@ -190,8 +323,7 @@
                     </span>
                 </div>
                 <div style="font-size: 12px; color: #888;">
-                    Логин: {{ account.account_login or '—' }} | 
-                    Последняя синхр.: {{ account.last_sync or 'никогда' }}
+                    Логин: {{ account.account_login or '—' }}
                 </div>
             </div>
             
@@ -218,8 +350,12 @@
                 </div>
             </div>
             
+            <div class="account-footer">
+                <span>🕐 Последняя синхр.: {{ account.last_sync or 'никогда' }}</span>
+            </div>
+            
             <div class="btn-group">
-                <button class="btn-sync" onclick="syncAccount({{ account.id }})">🔄 Синхронизировать</button>
+                <button class="btn-sync" onclick="syncAccount({{ account.id }}, this)">🔄 Синхронизировать</button>
                 <button class="btn-edit" onclick="window.location.href='/edit_marketplace_account/{{ account.id }}'">✏️ Редактировать</button>
                 <button class="btn-delete" onclick="deleteAccount({{ account.id }})">🗑️ Удалить</button>
             </div>
@@ -233,42 +369,42 @@
 </div>
 
 <!-- Модальное окно добавления аккаунта -->
-<div id="addModal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000;">
-    <div style="background: white; padding: 25px; border-radius: 20px; width: 500px; max-width: 90%;">
+<div id="addModal" class="modal">
+    <div class="modal-content">
         <h2 style="margin-bottom: 20px;">➕ Добавить аккаунт</h2>
         <form action="/add_marketplace_account" method="POST">
             <div class="form-group">
                 <label>Маркетплейс *</label>
-                <select name="marketplace" required style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
+                <select name="marketplace" required>
                     <option value="wb">Wildberries</option>
                     <option value="ozon">Ozon</option>
                 </select>
             </div>
             <div class="form-group">
                 <label>Название аккаунта *</label>
-                <input type="text" name="account_name" required placeholder="Например: Основной WB" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
+                <input type="text" name="account_name" required placeholder="Например: Основной WB">
             </div>
             <div class="form-group">
                 <label>Логин/Название магазина</label>
-                <input type="text" name="account_login" placeholder="Название магазина" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
+                <input type="text" name="account_login" placeholder="Название магазина">
             </div>
             <div class="form-group">
                 <label>API-ключ *</label>
-                <input type="text" name="api_key" required placeholder="API-ключ" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
-                <small style="color: #666;">Как получить: личный кабинет → Настройки → API</small>
+                <input type="text" name="api_key" required placeholder="API-ключ">
+                <small>Как получить: личный кабинет → Настройки → API</small>
             </div>
             <div class="form-group">
                 <label>Client ID (только для Ozon)</label>
-                <input type="text" name="client_id" placeholder="Client ID" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
+                <input type="text" name="client_id" placeholder="Client ID">
             </div>
             <div class="form-group">
-                <label style="display: flex; align-items: center; gap: 10px;">
-                    <input type="checkbox" name="is_active" checked> Активен
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                    <input type="checkbox" name="is_active" checked style="width: auto;"> Активен
                 </label>
             </div>
-            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
-                <button type="submit" style="background: #27ae60; color: white; padding: 10px 20px; border: none; border-radius: 8px;">💾 Сохранить</button>
-                <button type="button" onclick="closeModal()" style="background: #95a5a6; color: white; padding: 10px 20px; border: none; border-radius: 8px;">❌ Отмена</button>
+            <div class="modal-buttons">
+                <button type="submit" class="btn-save">💾 Сохранить</button>
+                <button type="button" class="btn-cancel-modal" onclick="closeModal()">❌ Отмена</button>
             </div>
         </form>
     </div>
@@ -283,48 +419,36 @@
         document.getElementById('addModal').style.display = 'none';
     }
     
-    async function syncAccount(accountId) {
-        const btn = event.target;
-        btn.textContent = '⏳ Синхронизация...';
-        btn.disabled = true;
+    async function syncAccount(accountId, button) {
+        const originalText = button.textContent;
+        button.textContent = '⏳ Синхронизация...';
+        button.disabled = true;
         
         try {
             const response = await fetch(`/sync_account/${accountId}`);
-            const result = await response.json();
-            
-            if (result.success) {
-                alert(`Синхронизировано ${result.new_orders} новых заказов`);
-                window.location.reload();
-            } else {
-                alert('Ошибка синхронизации: ' + result.error);
-            }
+            // Просто перезагружаем страницу - сервер покажет flash-сообщения
+            window.location.reload();
         } catch(e) {
-            alert('Ошибка соединения');
-        } finally {
-            btn.textContent = '🔄 Синхронизировать';
-            btn.disabled = false;
+            console.error('Ошибка:', e);
+            alert('❌ Ошибка соединения с сервером');
+            button.textContent = originalText;
+            button.disabled = false;
         }
     }
     
     async function syncAllAccounts() {
-        const btn = event.target;
+        const btn = document.querySelector('.sync-all-btn');
+        const originalText = btn.textContent;
         btn.textContent = '⏳ Синхронизация всех...';
         btn.disabled = true;
         
         try {
             const response = await fetch('/sync_all_orders');
-            const result = await response.json();
-            
-            let message = `Синхронизировано ${result.new_orders} новых заказов\n\n`;
-            result.logs.forEach(log => {
-                message += `${log.account_name} (${log.marketplace.toUpperCase()}): ${log.new_orders} новых\n`;
-            });
-            alert(message);
             window.location.reload();
         } catch(e) {
-            alert('Ошибка синхронизации');
-        } finally {
-            btn.textContent = '🔄 Синхронизировать все аккаунты';
+            console.error('Ошибка:', e);
+            alert('❌ Ошибка соединения с сервером');
+            btn.textContent = originalText;
             btn.disabled = false;
         }
     }
@@ -335,17 +459,12 @@
         }
     }
     
+    // Закрытие модального окна при клике вне его
     window.onclick = function(event) {
         if (event.target.classList.contains('modal')) {
             event.target.style.display = 'none';
         }
     }
 </script>
-
-<style>
-    .form-group { margin-bottom: 15px; }
-    .form-group label { display: block; margin-bottom: 5px; font-weight: 500; }
-    .modal { display: none; }
-</style>
 </body>
 </html>

@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify, send_file, flash
+from flask import Flask, render_template, request, redirect, url_for, jsonify, send_file, flash, session
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
 import os
@@ -465,81 +465,109 @@ def generate_next_id():
     return f"CARPET-{n:04d}"
 
 def sync_account_orders(account_id):
-    """Синхронизация заказов для конкретного аккаунта"""
+    """Синхронизация заказов для конкретного аккаунта (Wildberries DBS + история)"""
     acc = db.session.get(MarketplaceAccount, account_id)
     if not acc or not acc.is_active:
         logger.warning(f"Аккаунт {account_id} не активен или не найден")
         return 0
     
     new = 0
-    orders = []
+    all_orders = []
     
     try:
         if acc.marketplace == 'wb':
-            # НОВЫЙ ПРАВИЛЬНЫЙ ДОМЕН ДЛЯ WB API
-            url = "https://marketplace-api.wildberries.ru/api/v3/orders"
             headers = {"Authorization": acc.api_key}
+            request_success = False
             
-            # ВАЖНО: dateFrom должен быть в формате YYYY-MM-DD
-            # Используем флаг "заказы со статусом "new" (непереданные в работу)"
-            params = {
-                "dateFrom": (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d"),
-                "status": 0  # 0 - все заказы (или используйте другой статус)
-            }
-            
-            logger.info(f"Запрос к WB API: {url}")
-            logger.info(f"Параметры: {params}")
+            # ========== 1. Получаем НОВЫЕ сборочные задания ==========
+            url_new = "https://marketplace-api.wildberries.ru/api/v3/dbs/orders/new"
+            logger.info(f"Запрос к WB (новые заказы): {url_new}")
             
             try:
-                response = requests.get(url, headers=headers, params=params, timeout=30)
-                logger.info(f"Статус ответа WB: {response.status_code}")
+                response_new = requests.get(url_new, headers=headers, timeout=30)
+                logger.info(f"Статус ответа (новые): {response_new.status_code}")
                 
-                if response.status_code == 200:
-                    data = response.json()
-                    orders = data.get('orders', [])
-                    logger.info(f"Получено заказов: {len(orders)}")
+                if response_new.status_code == 200:
+                    data_new = response_new.json()
+                    new_orders = data_new.get('orders', [])
+                    logger.info(f"Получено новых заказов: {len(new_orders)}")
+                    all_orders.extend(new_orders)
+                    request_success = True
                 else:
-                    error_msg = f"WB API ошибка {response.status_code}: {response.text[:200]}"
-                    logger.error(error_msg)
-                    # Не прерываем синхронизацию, просто логируем ошибку
-                    flash(f'Ошибка синхронизации {acc.account_name}: {error_msg}', 'error')
-                    return 0
-                    
-            except requests.exceptions.Timeout:
-                logger.error("Таймаут подключения к WB API (30 секунд)")
-                flash(f'Таймаут подключения к WB API для {acc.account_name}', 'error')
-                return 0
-            except requests.exceptions.ConnectionError as e:
-                logger.error(f"Ошибка соединения с WB API: {e}")
-                flash(f'Не удалось подключиться к WB API для {acc.account_name}', 'error')
+                    logger.error(f"Ошибка получения новых заказов: {response_new.status_code} - {response_new.text[:200]}")
+            except Exception as e:
+                logger.error(f"Исключение при получении новых заказов: {e}")
+            
+            # ========== 2. Получаем ЗАВЕРШЁННЫЕ заказы (историю) ==========
+            url_completed = "https://marketplace-api.wildberries.ru/api/v3/dbs/orders"
+            params = {
+                "limit": 100,
+                "next": 0,
+                "dateFrom": int((datetime.now() - timedelta(days=30)).timestamp()),
+                "dateTo": int(datetime.now().timestamp())
+            }
+            logger.info(f"Запрос к WB (история): {url_completed}")
+            
+            try:
+                response_completed = requests.get(url_completed, headers=headers, params=params, timeout=30)
+                logger.info(f"Статус ответа (история): {response_completed.status_code}")
+                
+                if response_completed.status_code == 200:
+                    data_completed = response_completed.json()
+                    completed_orders = data_completed.get('orders', [])
+                    logger.info(f"Получено завершённых заказов: {len(completed_orders)}")
+                    all_orders.extend(completed_orders)
+                    request_success = True
+                else:
+                    logger.error(f"Ошибка получения истории: {response_completed.status_code} - {response_completed.text[:200]}")
+            except Exception as e:
+                logger.error(f"Исключение при получении истории: {e}")
+            
+            # Проверяем, был ли хоть один успешный запрос
+            if not request_success:
+                flash(f'❌ {acc.account_name}: не удалось подключиться к Wildberries API. Проверьте API-ключ и интернет.', 'error')
                 return 0
             
-            for o in orders:
-                existing = MarketplaceOrder.query.filter_by(marketplace='wb', order_id=str(o.get('id'))).first()
+            # ========== 3. Обрабатываем все полученные заказы ==========
+            logger.info(f"Всего заказов для обработки: {len(all_orders)}")
+            
+            for o in all_orders:
+                existing = MarketplaceOrder.query.filter_by(
+                    marketplace='wb', 
+                    order_id=str(o.get('id'))
+                ).first()
+                
                 if not existing:
-                    cust = o.get('customer', {})
-                    deliv = o.get('delivery', {})
+                    address = o.get('address', {})
                     mo = MarketplaceOrder(
-                        account_id=acc.id, 
-                        marketplace='wb', 
+                        account_id=acc.id,
+                        marketplace='wb',
                         order_id=str(o.get('id')),
-                        customer_name=cust.get('name', ''), 
-                        customer_phone=cust.get('phone', ''),
-                        delivery_address=deliv.get('address', ''), 
+                        customer_name='',
+                        customer_phone='',
+                        delivery_address=address.get('fullAddress', ''),
                         status='new',
-                        ordered_at=o.get('createdAt', ''), 
+                        ordered_at=o.get('createdAt', ''),
                         price=o.get('price', 0),
-                        products_info=json.dumps(o.get('products', [])), 
-                        wb_supply_id=o.get('supplyId', '')
+                        products_info=json.dumps(o.get('skus', [])),
+                        wb_supply_id=str(o.get('warehouseId', ''))
                     )
                     db.session.add(mo)
                     new += 1
+            
+            db.session.commit()
+            
+            # ========== 4. Flash-сообщения (только при реальных изменениях или ошибках) ==========
+            if new > 0:
+                flash(f'✅ {acc.account_name}: получено {new} новых заказов', 'success')
+            # Если заказов нет, НЕ показываем ничего (это нормальная ситуация)
                     
         elif acc.marketplace == 'ozon':
+            # ========== Ozon API ==========
             url = "https://api-seller.ozon.ru/v3/posting/fbs/list"
             headers = {
-                "Api-Key": acc.api_key, 
-                "Client-Id": acc.client_id, 
+                "Api-Key": acc.api_key,
+                "Client-Id": acc.client_id,
                 "Content-Type": "application/json"
             }
             payload = {
@@ -561,62 +589,62 @@ def sync_account_orders(account_id):
                     data = response.json()
                     orders = data.get('result', {}).get('postings', [])
                     logger.info(f"Получено заказов: {len(orders)}")
+                    
+                    for o in orders:
+                        if not MarketplaceOrder.query.filter_by(marketplace='ozon', order_id=o.get('posting_number')).first():
+                            cust = o.get('customer', {})
+                            deliv = o.get('delivery', {})
+                            prods = o.get('products', [])
+                            mo = MarketplaceOrder(
+                                account_id=acc.id,
+                                marketplace='ozon',
+                                order_id=o.get('posting_number'),
+                                customer_name=cust.get('name', ''),
+                                customer_phone=cust.get('phone', ''),
+                                delivery_address=deliv.get('address', {}).get('address_txt', ''),
+                                status='new',
+                                ordered_at=o.get('created_at', ''),
+                                price=sum(p.get('price', 0) * p.get('quantity', 1) for p in prods),
+                                products_info=json.dumps(prods),
+                                ozon_posting_number=o.get('posting_number')
+                            )
+                            db.session.add(mo)
+                            new += 1
+                    
+                    db.session.commit()
+                    
+                    if new > 0:
+                        flash(f'✅ {acc.account_name}: получено {new} новых заказов', 'success')
+                    # Если заказов нет, НЕ показываем ничего
                 else:
-                    error_msg = f"Ozon API ошибка {response.status_code}: {response.text[:200]}"
-                    logger.error(error_msg)
-                    flash(f'Ошибка синхронизации {acc.account_name}: {error_msg}', 'error')
+                    error_msg = f"Ozon API ошибка {response.status_code}"
+                    logger.error(f"{error_msg}: {response.text[:200]}")
+                    flash(f'❌ Ошибка синхронизации {acc.account_name}: {error_msg}', 'error')
                     return 0
                     
-            except requests.exceptions.Timeout:
-                logger.error("Таймаут подключения к Ozon API")
-                flash(f'Таймаут подключения к Ozon API для {acc.account_name}', 'error')
+            except requests.exceptions.ConnectionError:
+                flash(f'❌ {acc.account_name}: ошибка соединения с Ozon API. Проверьте интернет.', 'error')
                 return 0
-            except requests.exceptions.ConnectionError as e:
-                logger.error(f"Ошибка соединения с Ozon API: {e}")
-                flash(f'Не удалось подключиться к Ozon API для {acc.account_name}', 'error')
+            except Exception as e:
+                error_msg = str(e)
+                logger.error(f"Исключение при запросе к Ozon: {error_msg}")
+                flash(f'❌ Ошибка синхронизации {acc.account_name}: {error_msg[:200]}', 'error')
                 return 0
-            
-            for o in orders:
-                if not MarketplaceOrder.query.filter_by(marketplace='ozon', order_id=o.get('posting_number')).first():
-                    cust = o.get('customer', {})
-                    deliv = o.get('delivery', {})
-                    prods = o.get('products', [])
-                    mo = MarketplaceOrder(
-                        account_id=acc.id, 
-                        marketplace='ozon', 
-                        order_id=o.get('posting_number'),
-                        customer_name=cust.get('name', ''), 
-                        customer_phone=cust.get('phone', ''),
-                        delivery_address=deliv.get('address', {}).get('address_txt', ''), 
-                        status='new',
-                        ordered_at=o.get('created_at', ''),
-                        price=sum(p.get('price', 0) * p.get('quantity', 1) for p in prods),
-                        products_info=json.dumps(prods), 
-                        ozon_posting_number=o.get('posting_number')
-                    )
-                    db.session.add(mo)
-                    new += 1
         
+        # Обновляем время последней синхронизации
         acc.last_sync = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         db.session.commit()
         
-        # Логируем успешную синхронизацию
+        # Логируем синхронизацию
         sync_log = MarketplaceSyncLog(
             account_id=acc.id,
             sync_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            orders_found=len(orders),
+            orders_found=len(all_orders) if acc.marketplace == 'wb' else len(orders) if 'orders' in locals() else 0,
             orders_new=new,
             status='success'
         )
         db.session.add(sync_log)
         db.session.commit()
-        
-        if new > 0:
-            flash(f'Синхронизация {acc.account_name}: получено {new} новых заказов', 'success')
-        else:
-            flash(f'Синхронизация {acc.account_name}: новых заказов нет', 'info')
-        
-        logger.info(f"Синхронизация аккаунта {acc.account_name} завершена. Новых заказов: {new}")
         
     except Exception as e:
         error_msg = str(e)
@@ -631,7 +659,7 @@ def sync_account_orders(account_id):
         db.session.add(sync_log)
         db.session.commit()
         
-        flash(f'Ошибка синхронизации {acc.account_name}: {error_msg[:200]}', 'error')
+        flash(f'❌ Ошибка синхронизации {acc.account_name}: {error_msg[:200]}', 'error')
     
     return new
 @app.route('/sync_orders')
@@ -1258,9 +1286,10 @@ def delete_marketplace_account(id):
 @app.route('/sync_account/<int:account_id>')
 def sync_account(account_id):
     new = sync_account_orders(account_id)
+    
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return jsonify({'success': True, 'new_orders': new})
-    flash(f'Синхронизировано {new} новых заказов', 'success')
+    
     return redirect(url_for('marketplace_accounts'))
 
 @app.route('/sync_all_orders')
@@ -1272,9 +1301,11 @@ def sync_all_orders():
         n = sync_account_orders(a.id)
         total += n
         logs.append({'account_name': a.account_name, 'marketplace': a.marketplace, 'new_orders': n})
+    
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return jsonify({'success': True, 'new_orders': total, 'logs': logs})
-    flash(f'Синхронизировано {total} заказов с {len(accounts)} аккаунтов', 'success')
+    
+    # flash-сообщения уже установлены в sync_account_orders
     return redirect(url_for('marketplace_accounts'))
 
 @app.route('/marketplace_orders')
