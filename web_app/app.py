@@ -1371,8 +1371,8 @@ def generate_single_pages_pdf():
         x_offset = (width - new_width) / 2
         y_offset = (height - new_height) / 2
         
-        # Увеличенная высота белой полосы для текста (было 60, стало 80)
-        text_height = 80
+        # Увеличенная высота белой полосы для текста (было 80, стало 105 - +31%)
+        text_height = 105
         
         c = canvas.Canvas(buffer, pagesize=A4)
         
@@ -1415,21 +1415,34 @@ def generate_single_pages_pdf():
             
             c.setFillColorRGB(0, 0, 0)
             
-            # ID ковра (увеличен: было 15, стало 20)
-            c.setFont("Helvetica-Bold", 20)
-            c.drawCentredString(width / 2, text_height - 18, carpet.carpet_id)
+            # ID ковра (было 20, стало 26 - +30%)
+            c.setFont("Helvetica-Bold", 26)
+            c.drawCentredString(width / 2, text_height - 22, carpet.carpet_id)
             
-            # Тип и швея (увеличен: было 10, стало 14)
+            # Тип и швея (было 14, стало 18.5 - +32%)
             if FONT_REGISTERED:
-                c.setFont("RussianFont", 14)
+                c.setFont("RussianFont", 18.5)
             else:
-                c.setFont("Helvetica", 14)
-            c.drawCentredString(width / 2, text_height - 40, f"{type_name} | {craftsman_name}")
+                c.setFont("Helvetica", 18.5)
+            c.drawCentredString(width / 2, text_height - 48, f"{type_name} | {craftsman_name}")
             
-            # Цена (увеличен: было 12, стало 16)
-            c.setFont("Helvetica-Bold", 16)
+            # Цена (было 16, стало 22 - +37%)
+            c.setFont("Helvetica-Bold", 22)
             price_str = f"{carpet.price:,} ₽".replace(',', ' ')
-            c.drawCentredString(width / 2, text_height - 62, price_str)
+            c.drawCentredString(width / 2, text_height - 78, price_str)
+            
+            # Размер и материал (новая строка)
+            size_material = ""
+            if carpet.size:
+                size_material += f"Размер: {carpet.size}"
+            if carpet.material:
+                if size_material:
+                    size_material += f" | Материал: {carpet.material}"
+                else:
+                    size_material += f"Материал: {carpet.material}"
+            if size_material:
+                c.setFont("Helvetica", 13)
+                c.drawCentredString(width / 2, text_height - 100, size_material)
             
             # Номер страницы
             c.setFont("Helvetica", 7)
@@ -1452,7 +1465,6 @@ def generate_single_pages_pdf():
         import traceback
         traceback.print_exc()
         return f"Ошибка: {str(e)}", 500
-
 # ========== МАРШРУТЫ МАРКЕТПЛЕЙСОВ ==========
 @app.route('/marketplace_accounts')
 def marketplace_accounts():
