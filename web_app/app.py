@@ -1334,12 +1334,31 @@ def generate_qr_pdf():
         return f"Ошибка: {e}", 500
 
 # ========== ОСНОВНАЯ ФУНКЦИЯ ГЕНЕРАЦИИ PDF С QR НА ВЕСЬ ЛИСТ (УМЕНЬШЕН ДО 85%) ==========
+# ========== ОСНОВНАЯ ФУНКЦИЯ ГЕНЕРАЦИИ PDF С QR НА ВЕСЬ ЛИСТ (С ПОДДЕРЖКОЙ НАСТРОЕК) ==========
 @app.route('/generate_single_pages_pdf')
 def generate_single_pages_pdf():
-    """Генерирует PDF, где каждый QR-код на весь лист А4 (увеличенные шрифты)"""
+    """Генерирует PDF, где каждый QR-код на весь лист А4 с пользовательскими настройками"""
     carpet_type_id = request.args.get('carpet_type_id', '')
     craftsman_id = request.args.get('craftsman_id', '')
     status = request.args.get('status', '')
+    
+    # Параметры настройки (с значениями по умолчанию)
+    qr_scale = float(request.args.get('qr_scale', 0.85))
+    font_id_size = int(request.args.get('font_id_size', 26))
+    font_type_size = float(request.args.get('font_type_size', 18.5))
+    font_price_size = int(request.args.get('font_price_size', 22))
+    text_height = int(request.args.get('text_height', 105))
+    show_id = request.args.get('show_id', 'true').lower() == 'true'
+    show_type = request.args.get('show_type', 'true').lower() == 'true'
+    show_price = request.args.get('show_price', 'true').lower() == 'true'
+    show_size = request.args.get('show_size', 'true').lower() == 'true'
+    
+    # Ограничиваем значения
+    qr_scale = max(0.3, min(1.0, qr_scale))
+    font_id_size = max(10, min(50, font_id_size))
+    font_type_size = max(8, min(32, font_type_size))
+    font_price_size = max(10, min(40, font_price_size))
+    text_height = max(50, min(180, text_height))
     
     query = Carpet.query
     if carpet_type_id:
@@ -1364,15 +1383,11 @@ def generate_single_pages_pdf():
         buffer = io.BytesIO()
         width, height = A4
         
-        # Уменьшаем до 85% от листа
-        scale_factor = 0.85
-        new_width = width * scale_factor
-        new_height = height * scale_factor
+        # Масштабируем QR с учетом пользовательских настроек
+        new_width = width * qr_scale
+        new_height = height * qr_scale
         x_offset = (width - new_width) / 2
         y_offset = (height - new_height) / 2
-        
-        # Увеличенная высота белой полосы для текста (было 80, стало 105 - +31%)
-        text_height = 105
         
         c = canvas.Canvas(buffer, pagesize=A4)
         
@@ -1394,7 +1409,7 @@ def generate_single_pages_pdf():
             qr_x_offset = x_offset + (new_width - qr_new_width) / 2
             qr_y_offset = y_offset + (new_height - qr_new_height) / 2
             
-            # Увеличиваем разрешение и вставляем QR
+            # Вставляем QR
             temp_buffer = io.BytesIO()
             pil_img_resized = pil_img.resize((int(qr_new_width), int(qr_new_height)), Image.Resampling.LANCZOS)
             pil_img_resized.save(temp_buffer, format='PNG', dpi=(300, 300))
@@ -1415,34 +1430,43 @@ def generate_single_pages_pdf():
             
             c.setFillColorRGB(0, 0, 0)
             
-            # ID ковра (было 20, стало 26 - +30%)
-            c.setFont("Helvetica-Bold", 26)
-            c.drawCentredString(width / 2, text_height - 22, carpet.carpet_id)
+            y_pos = text_height - 22
             
-            # Тип и швея (было 14, стало 18.5 - +32%)
-            if FONT_REGISTERED:
-                c.setFont("RussianFont", 18.5)
-            else:
-                c.setFont("Helvetica", 18.5)
-            c.drawCentredString(width / 2, text_height - 48, f"{type_name} | {craftsman_name}")
+            # ID ковра
+            if show_id:
+                c.setFont("Helvetica-Bold", font_id_size)
+                c.drawCentredString(width / 2, y_pos, carpet.carpet_id)
+                y_pos -= font_id_size + 4
             
-            # Цена (было 16, стало 22 - +37%)
-            c.setFont("Helvetica-Bold", 22)
-            price_str = f"{carpet.price:,} ₽".replace(',', ' ')
-            c.drawCentredString(width / 2, text_height - 78, price_str)
-            
-            # Размер и материал (новая строка)
-            size_material = ""
-            if carpet.size:
-                size_material += f"Размер: {carpet.size}"
-            if carpet.material:
-                if size_material:
-                    size_material += f" | Материал: {carpet.material}"
+            # Тип и швея
+            if show_type:
+                if FONT_REGISTERED:
+                    c.setFont("RussianFont", font_type_size)
                 else:
-                    size_material += f"Материал: {carpet.material}"
-            if size_material:
-                c.setFont("Helvetica", 13)
-                c.drawCentredString(width / 2, text_height - 100, size_material)
+                    c.setFont("Helvetica", font_type_size)
+                c.drawCentredString(width / 2, y_pos, f"{type_name} | {craftsman_name}")
+                y_pos -= font_type_size + 4
+            
+            # Цена
+            if show_price:
+                c.setFont("Helvetica-Bold", font_price_size)
+                price_str = f"{carpet.price:,} ₽".replace(',', ' ')
+                c.drawCentredString(width / 2, y_pos, price_str)
+                y_pos -= font_price_size + 4
+            
+            # Размер и материал
+            if show_size:
+                size_material = ""
+                if carpet.size:
+                    size_material += f"Размер: {carpet.size}"
+                if carpet.material:
+                    if size_material:
+                        size_material += f" | Материал: {carpet.material}"
+                    else:
+                        size_material += f"Материал: {carpet.material}"
+                if size_material:
+                    c.setFont("Helvetica", 11)
+                    c.drawCentredString(width / 2, y_pos, size_material)
             
             # Номер страницы
             c.setFont("Helvetica", 7)

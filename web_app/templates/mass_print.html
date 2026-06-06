@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Массовая печать QR-кодов</title>
+    <title>Массовая печать QR-кодов с настройками</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -12,7 +12,7 @@
             padding: 20px;
         }
         .container {
-            max-width: 1000px;
+            max-width: 1200px;
             margin: 0 auto;
             background: white;
             border-radius: 20px;
@@ -25,6 +25,114 @@
             text-align: center;
         }
         .content { padding: 25px; }
+        
+        /* Панель настроек */
+        .settings-panel {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 25px;
+            border: 1px solid #e0e0e0;
+        }
+        .settings-panel h3 {
+            margin-bottom: 15px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        .setting-group {
+            background: white;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .setting-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 13px;
+            color: #333;
+        }
+        .setting-group input[type="range"] {
+            width: 100%;
+            margin: 10px 0;
+        }
+        .setting-group input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        .setting-group .value-display {
+            font-size: 12px;
+            color: #667eea;
+            font-weight: 600;
+            margin-top: 5px;
+        }
+        .setting-row {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+        
+        /* Предпросмотр */
+        .preview {
+            background: #fff;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 25px;
+            border: 2px dashed #667eea;
+        }
+        .preview h3 {
+            margin-bottom: 15px;
+            color: #667eea;
+        }
+        .preview-card {
+            max-width: 400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            overflow: hidden;
+        }
+        .preview-qr-area {
+            background: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+        .preview-text-area {
+            background: white;
+            padding: 12px;
+            text-align: center;
+            border-top: 1px solid #eee;
+        }
+        .preview-id {
+            font-weight: bold;
+            font-family: monospace;
+        }
+        .preview-type {
+            font-size: 12px;
+            color: #666;
+        }
+        .preview-price {
+            font-weight: bold;
+            color: #27ae60;
+        }
+        .preview-size {
+            font-size: 10px;
+            color: #888;
+        }
+        
         .filter-form {
             background: #f8f9fa;
             padding: 20px;
@@ -53,6 +161,7 @@
             border: 1px solid #ddd;
             border-radius: 8px;
         }
+        
         .btn-group {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -100,6 +209,7 @@
             font-size: 24px;
             color: #667eea;
         }
+        
         table {
             width: 100%;
             border-collapse: collapse;
@@ -112,6 +222,7 @@
             border-bottom: 1px solid #ddd;
         }
         th { background: #f8f9fa; }
+        
         .back-btn {
             display: inline-block;
             margin-top: 20px;
@@ -121,15 +232,23 @@
             text-decoration: none;
             border-radius: 8px;
         }
-        .description {
-            font-size: 12px;
-            color: rgba(255,255,255,0.8);
-            margin-top: 5px;
-        }
+        
         @media (max-width: 768px) {
             .filter-row { flex-direction: column; }
             .btn-group { grid-template-columns: 1fr; }
             .info-grid { flex-direction: column; }
+            .settings-grid { grid-template-columns: 1fr; }
+        }
+        
+        .reset-btn {
+            background: #95a5a6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 10px;
+            font-size: 12px;
         }
     </style>
 </head>
@@ -137,10 +256,87 @@
 <div class="container">
     <div class="header">
         <h1>🖨️ Массовая печать QR-кодов</h1>
-        <p>Выберите формат печати для наклеек ковров</p>
+        <p>Настройте размер QR-кода и шрифты под свои нужды</p>
     </div>
     
     <div class="content">
+        <!-- Панель настроек -->
+        <div class="settings-panel">
+            <h3>⚙️ Настройки печати</h3>
+            <div class="settings-grid">
+                <!-- Масштаб QR -->
+                <div class="setting-group">
+                    <label>🔍 Масштаб QR-кода</label>
+                    <input type="range" id="qrScale" min="0.5" max="1.0" step="0.01" value="0.85">
+                    <div class="value-display" id="qrScaleValue">85% от листа</div>
+                </div>
+                
+                <!-- Размер шрифта ID -->
+                <div class="setting-group">
+                    <label>📝 ID ковра (размер шрифта)</label>
+                    <input type="range" id="fontIdSize" min="14" max="40" step="1" value="26">
+                    <div class="value-display" id="fontIdSizeValue">26 pt</div>
+                </div>
+                
+                <!-- Размер шрифта Тип/Швея -->
+                <div class="setting-group">
+                    <label>👤 Тип | Швея (размер)</label>
+                    <input type="range" id="fontTypeSize" min="10" max="28" step="1" value="18.5">
+                    <div class="value-display" id="fontTypeSizeValue">18.5 pt</div>
+                </div>
+                
+                <!-- Размер шрифта Цена -->
+                <div class="setting-group">
+                    <label>💰 Цена (размер шрифта)</label>
+                    <input type="range" id="fontPriceSize" min="12" max="36" step="1" value="22">
+                    <div class="value-display" id="fontPriceSizeValue">22 pt</div>
+                </div>
+                
+                <!-- Высота текстовой полосы -->
+                <div class="setting-group">
+                    <label>📏 Высота текстовой полосы</label>
+                    <input type="range" id="textHeight" min="60" max="150" step="5" value="105">
+                    <div class="value-display" id="textHeightValue">105 px</div>
+                </div>
+                
+                <!-- Отображение полей -->
+                <div class="setting-group">
+                    <label>👁️ Отображать поля:</label>
+                    <div class="setting-row">
+                        <label style="display: flex; align-items: center;">
+                            <input type="checkbox" id="showId" checked> ID ковра
+                        </label>
+                        <label style="display: flex; align-items: center;">
+                            <input type="checkbox" id="showType" checked> Тип | Швея
+                        </label>
+                        <label style="display: flex; align-items: center;">
+                            <input type="checkbox" id="showPrice" checked> Цена
+                        </label>
+                        <label style="display: flex; align-items: center;">
+                            <input type="checkbox" id="showSize" checked> Размер/Материал
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <button class="reset-btn" onclick="resetSettings()">🔄 Сбросить настройки</button>
+        </div>
+        
+        <!-- Предпросмотр -->
+        <div class="preview">
+            <h3>📱 Предпросмотр (пример)</h3>
+            <div class="preview-card">
+                <div class="preview-qr-area" id="previewQrArea" style="background: #f0f0f0; min-height: 200px; display: flex; justify-content: center; align-items: center;">
+                    <img id="previewQr" src="" alt="QR" style="max-width: 100%;">
+                </div>
+                <div class="preview-text-area" id="previewTextArea">
+                    <div class="preview-id" id="previewId">CARPET-0001</div>
+                    <div class="preview-type" id="previewType">Персидский | Анна Иванова</div>
+                    <div class="preview-price" id="previewPrice">15 000 ₽</div>
+                    <div class="preview-size" id="previewSize">Размер: 2x3 м | Материал: Шерсть</div>
+                </div>
+            </div>
+        </div>
+        
         <form method="GET" class="filter-form" id="filterForm">
             <div class="filter-row">
                 <div class="filter-group">
@@ -188,17 +384,17 @@
         
         <h3 style="margin-bottom: 15px;">📄 Выберите формат печати:</h3>
         <div class="btn-group">
-            <a href="{{ url_for('generate_qr_zip', carpet_type_id=selected_type, craftsman_id=selected_craftsman, status=selected_status) }}" class="btn btn-zip">
+            <a href="#" id="zipLink" class="btn btn-zip">
                 📦 ZIP архив ({{ carpets|length }} PNG)
                 <div class="description">Все QR-коды одним архивом</div>
             </a>
-            <a href="{{ url_for('generate_qr_pdf', carpet_type_id=selected_type, craftsman_id=selected_craftsman, status=selected_status) }}" class="btn btn-pdf-grid">
+            <a href="#" id="pdfGridLink" class="btn btn-pdf-grid">
                 📄 PDF (12 наклеек/лист)
                 <div class="description">Компактная печать, экономия бумаги</div>
             </a>
-            <a href="{{ url_for('generate_single_pages_pdf', carpet_type_id=selected_type, craftsman_id=selected_craftsman, status=selected_status) }}" class="btn btn-pdf-single">
-                📄 PDF (каждый на отдельной странице)
-                <div class="description">QR-код на весь лист А4 с информацией о ковре</div>
+            <a href="#" id="pdfSingleLink" class="btn btn-pdf-single">
+                📄 PDF с НАСТРОЙКАМИ
+                <div class="description">QR-код на весь лист с вашими настройками</div>
             </a>
         </div>
         
@@ -207,14 +403,7 @@
             <div style="max-height: 300px; overflow-y: auto; margin-top: 10px;">
                 <table>
                     <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Тип</th>
-                            <th>Швея</th>
-                            <th>Цена</th>
-                            <th>Размер</th>
-                            <th>Статус</th>
-                        </tr>
+                        <tr><th>ID</th><th>Тип</th><th>Швея</th><th>Цена</th><th>Размер</th><th>Статус</th></tr>
                     </thead>
                     <tbody>
                         {% for carpet in carpets %}
@@ -224,15 +413,7 @@
                             <td>{{ carpet.craftsman_ref.name if carpet.craftsman_ref else '-' }}</td>
                             <td>{{ carpet.price }} ₽</td>
                             <td>{{ carpet.size or '-' }}</td>
-                            <td>
-                                {% if carpet.status == 'created' %}
-                                <span style="color: #3498db;">📦 Создан</span>
-                                {% elif carpet.status == 'scanned' %}
-                                <span style="color: #27ae60;">✅ Отсканирован</span>
-                                {% else %}
-                                <span style="color: #95a5a6;">💰 Продан</span>
-                                {% endif %}
-                            </td>
+                            <td>{% if carpet.status == 'created' %}📦 Создан{% elif carpet.status == 'scanned' %}✅ Отсканирован{% else %}💰 Продан{% endif %}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -245,16 +426,175 @@
 </div>
 
 <script>
-    // Автоматическая отправка формы при изменении фильтров
-    document.getElementById('carpetTypeSelect').addEventListener('change', function() {
+    // Получение настроек
+    function getSettings() {
+        return {
+            qr_scale: parseFloat(document.getElementById('qrScale').value),
+            font_id_size: parseInt(document.getElementById('fontIdSize').value),
+            font_type_size: parseFloat(document.getElementById('fontTypeSize').value),
+            font_price_size: parseInt(document.getElementById('fontPriceSize').value),
+            text_height: parseInt(document.getElementById('textHeight').value),
+            show_id: document.getElementById('showId').checked,
+            show_type: document.getElementById('showType').checked,
+            show_price: document.getElementById('showPrice').checked,
+            show_size: document.getElementById('showSize').checked
+        };
+    }
+    
+    // Сохранение настроек в localStorage
+    function saveSettings() {
+        const settings = getSettings();
+        localStorage.setItem('qrPrintSettings', JSON.stringify(settings));
+    }
+    
+    // Загрузка настроек из localStorage
+    function loadSettings() {
+        const saved = localStorage.getItem('qrPrintSettings');
+        if (saved) {
+            try {
+                const settings = JSON.parse(saved);
+                document.getElementById('qrScale').value = settings.qr_scale || 0.85;
+                document.getElementById('fontIdSize').value = settings.font_id_size || 26;
+                document.getElementById('fontTypeSize').value = settings.font_type_size || 18.5;
+                document.getElementById('fontPriceSize').value = settings.font_price_size || 22;
+                document.getElementById('textHeight').value = settings.text_height || 105;
+                document.getElementById('showId').checked = settings.show_id !== false;
+                document.getElementById('showType').checked = settings.show_type !== false;
+                document.getElementById('showPrice').checked = settings.show_price !== false;
+                document.getElementById('showSize').checked = settings.show_size !== false;
+                updateDisplays();
+            } catch(e) {}
+        }
+        updatePreview();
+    }
+    
+    function resetSettings() {
+        document.getElementById('qrScale').value = 0.85;
+        document.getElementById('fontIdSize').value = 26;
+        document.getElementById('fontTypeSize').value = 18.5;
+        document.getElementById('fontPriceSize').value = 22;
+        document.getElementById('textHeight').value = 105;
+        document.getElementById('showId').checked = true;
+        document.getElementById('showType').checked = true;
+        document.getElementById('showPrice').checked = true;
+        document.getElementById('showSize').checked = true;
+        updateDisplays();
+        saveSettings();
+        updatePreview();
+    }
+    
+    function updateDisplays() {
+        document.getElementById('qrScaleValue').innerText = Math.round(document.getElementById('qrScale').value * 100) + '% от листа';
+        document.getElementById('fontIdSizeValue').innerText = document.getElementById('fontIdSize').value + ' pt';
+        document.getElementById('fontTypeSizeValue').innerText = document.getElementById('fontTypeSize').value + ' pt';
+        document.getElementById('fontPriceSizeValue').innerText = document.getElementById('fontPriceSize').value + ' pt';
+        document.getElementById('textHeightValue').innerText = document.getElementById('textHeight').value + ' px';
+    }
+    
+    // Обновление предпросмотра
+    async function updatePreview() {
+        const settings = getSettings();
+        
+        // Получаем первый QR-код для предпросмотра
+        const firstCarpet = {{ carpets[0].carpet_id if carpets else 'null'|tojson }};
+        if (firstCarpet) {
+            document.getElementById('previewQr').src = '/get_qr/' + firstCarpet + '?t=' + Date.now();
+        }
+        
+        // Обновляем текст предпросмотра
+        const previewId = document.getElementById('previewId');
+        const previewType = document.getElementById('previewType');
+        const previewPrice = document.getElementById('previewPrice');
+        const previewSize = document.getElementById('previewSize');
+        const previewTextArea = document.getElementById('previewTextArea');
+        
+        previewId.style.display = settings.show_id ? 'block' : 'none';
+        previewId.style.fontSize = settings.font_id_size + 'px';
+        
+        previewType.style.display = settings.show_type ? 'block' : 'none';
+        previewType.style.fontSize = settings.font_type_size + 'px';
+        
+        previewPrice.style.display = settings.show_price ? 'block' : 'none';
+        previewPrice.style.fontSize = settings.font_price_size + 'px';
+        
+        previewSize.style.display = settings.show_size ? 'block' : 'none';
+        
+        // Корректируем высоту текстовой области
+        previewTextArea.style.padding = (settings.text_height / 8) + 'px 12px';
+    }
+    
+    // Обновление ссылок с параметрами
+    function updateLinks() {
+        const settings = getSettings();
+        const params = new URLSearchParams({
+            qr_scale: settings.qr_scale,
+            font_id_size: settings.font_id_size,
+            font_type_size: settings.font_type_size,
+            font_price_size: settings.font_price_size,
+            text_height: settings.text_height,
+            show_id: settings.show_id,
+            show_type: settings.show_type,
+            show_price: settings.show_price,
+            show_size: settings.show_size
+        });
+        
+        // Получаем текущие фильтры
+        const carpetType = document.getElementById('carpetTypeSelect').value;
+        const craftsman = document.getElementById('craftsmanSelect').value;
+        const status = document.getElementById('statusSelect').value;
+        
+        if (carpetType) params.append('carpet_type_id', carpetType);
+        if (craftsman) params.append('craftsman_id', craftsman);
+        if (status) params.append('status', status);
+        
+        // Обновляем ссылки
+        document.getElementById('zipLink').href = '/generate_qr_zip?' + params.toString();
+        document.getElementById('pdfGridLink').href = '/generate_qr_pdf?' + params.toString();
+        document.getElementById('pdfSingleLink').href = '/generate_single_pages_pdf?' + params.toString();
+    }
+    
+    // Обработчики изменений
+    const rangeInputs = ['qrScale', 'fontIdSize', 'fontTypeSize', 'fontPriceSize', 'textHeight'];
+    rangeInputs.forEach(id => {
+        document.getElementById(id).addEventListener('input', () => {
+            updateDisplays();
+            saveSettings();
+            updatePreview();
+            updateLinks();
+        });
+    });
+    
+    const checkboxes = ['showId', 'showType', 'showPrice', 'showSize'];
+    checkboxes.forEach(id => {
+        document.getElementById(id).addEventListener('change', () => {
+            saveSettings();
+            updatePreview();
+            updateLinks();
+        });
+    });
+    
+    // Фильтры
+    document.getElementById('carpetTypeSelect').addEventListener('change', () => {
         document.getElementById('filterForm').submit();
     });
-    document.getElementById('craftsmanSelect').addEventListener('change', function() {
+    document.getElementById('craftsmanSelect').addEventListener('change', () => {
         document.getElementById('filterForm').submit();
     });
-    document.getElementById('statusSelect').addEventListener('change', function() {
+    document.getElementById('statusSelect').addEventListener('change', () => {
         document.getElementById('filterForm').submit();
     });
+    
+    // Инициализация
+    loadSettings();
+    updateLinks();
+    
+    // Загрузка первого QR для предпросмотра
+    setTimeout(() => {
+        const firstCarpet = {{ carpets[0].carpet_id if carpets else 'null'|tojson }};
+        if (firstCarpet) {
+            document.getElementById('previewQr').src = '/get_qr/' + firstCarpet;
+        }
+    }, 100);
 </script>
 </body>
 </html>
