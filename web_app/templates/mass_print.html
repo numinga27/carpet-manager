@@ -24,15 +24,20 @@
             padding: 25px;
             text-align: center;
         }
+        .header a {
+            color: white;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 10px;
+        }
         .content { padding: 25px; }
         
-        /* Панель настроек */
         .settings-panel {
-            background: #f8f9fa;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
             border-radius: 15px;
             padding: 20px;
             margin-bottom: 25px;
-            border: 1px solid #e0e0e0;
+            border: 1px solid #dee2e6;
         }
         .settings-panel h3 {
             margin-bottom: 15px;
@@ -43,14 +48,14 @@
         }
         .settings-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 20px;
         }
         .setting-group {
             background: white;
             padding: 15px;
             border-radius: 12px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         }
         .setting-group label {
             display: block;
@@ -64,8 +69,8 @@
             margin: 10px 0;
         }
         .setting-group input[type="checkbox"] {
-            width: 20px;
-            height: 20px;
+            width: 18px;
+            height: 18px;
             margin-right: 8px;
             vertical-align: middle;
         }
@@ -74,6 +79,7 @@
             color: #667eea;
             font-weight: 600;
             margin-top: 5px;
+            text-align: center;
         }
         .setting-row {
             display: flex;
@@ -82,10 +88,15 @@
             flex-wrap: wrap;
             margin-top: 10px;
         }
+        .setting-row label {
+            display: flex;
+            align-items: center;
+            font-weight: normal;
+            margin-bottom: 0;
+        }
         
-        /* Предпросмотр */
         .preview {
-            background: #fff;
+            background: linear-gradient(135deg, #667eea10 0%, #764ba210 100%);
             border-radius: 15px;
             padding: 20px;
             margin-bottom: 25px;
@@ -100,7 +111,7 @@
             margin: 0 auto;
             background: white;
             border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
             overflow: hidden;
         }
         .preview-qr-area {
@@ -108,29 +119,28 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            position: relative;
+            min-height: 250px;
+            transition: all 0.2s;
         }
         .preview-text-area {
             background: white;
-            padding: 12px;
             text-align: center;
             border-top: 1px solid #eee;
+            transition: padding 0.2s;
         }
         .preview-id {
             font-weight: bold;
             font-family: monospace;
+            transition: all 0.2s;
         }
         .preview-type {
-            font-size: 12px;
             color: #666;
+            transition: all 0.2s;
         }
         .preview-price {
             font-weight: bold;
             color: #27ae60;
-        }
-        .preview-size {
-            font-size: 10px;
-            color: #888;
+            transition: all 0.2s;
         }
         
         .filter-form {
@@ -164,12 +174,12 @@
         
         .btn-group {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 15px;
             margin-top: 20px;
         }
         .btn {
-            padding: 12px;
+            padding: 14px;
             text-align: center;
             color: white;
             text-decoration: none;
@@ -185,6 +195,11 @@
         .btn-zip { background: #3498db; }
         .btn-pdf-grid { background: #27ae60; }
         .btn-pdf-single { background: #e74c3c; }
+        .description {
+            font-size: 11px;
+            opacity: 0.9;
+            margin-top: 5px;
+        }
         
         .info {
             background: #e8f4fd;
@@ -217,11 +232,11 @@
             font-size: 13px;
         }
         th, td {
-            padding: 8px;
+            padding: 10px;
             text-align: left;
             border-bottom: 1px solid #ddd;
         }
-        th { background: #f8f9fa; }
+        th { background: #f8f9fa; font-weight: 600; }
         
         .back-btn {
             display: inline-block;
@@ -233,13 +248,6 @@
             border-radius: 8px;
         }
         
-        @media (max-width: 768px) {
-            .filter-row { flex-direction: column; }
-            .btn-group { grid-template-columns: 1fr; }
-            .info-grid { flex-direction: column; }
-            .settings-grid { grid-template-columns: 1fr; }
-        }
-        
         .reset-btn {
             background: #95a5a6;
             color: white;
@@ -247,8 +255,31 @@
             padding: 8px 16px;
             border-radius: 8px;
             cursor: pointer;
-            margin-top: 10px;
+            margin-top: 15px;
             font-size: 12px;
+        }
+        
+        .preset-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        .preset-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 5px 12px;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+        
+        @media (max-width: 768px) {
+            .filter-row { flex-direction: column; }
+            .btn-group { grid-template-columns: 1fr; }
+            .info-grid { flex-direction: column; }
+            .settings-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -257,76 +288,71 @@
     <div class="header">
         <h1>🖨️ Массовая печать QR-кодов</h1>
         <p>Настройте размер QR-кода и шрифты под свои нужды</p>
+        <a href="/">← На главную</a>
     </div>
     
     <div class="content">
-        <!-- Панель настроек -->
         <div class="settings-panel">
             <h3>⚙️ Настройки печати</h3>
             <div class="settings-grid">
-                <!-- Масштаб QR -->
                 <div class="setting-group">
-                    <label>🔍 Масштаб QR-кода</label>
-                    <input type="range" id="qrScale" min="0.5" max="1.0" step="0.01" value="0.85">
+                    <label>🔍 Масштаб QR-кода (50-100%)</label>
+                    <input type="range" id="qrScale" min="0.5" max="1.0" step="0.01" value="0.85" oninput="updatePreview()">
                     <div class="value-display" id="qrScaleValue">85% от листа</div>
                 </div>
                 
-                <!-- Размер шрифта ID -->
                 <div class="setting-group">
-                    <label>📝 ID ковра (размер шрифта)</label>
-                    <input type="range" id="fontIdSize" min="14" max="40" step="1" value="26">
+                    <label>📝 ID ковра (размер 14-60 pt)</label>
+                    <input type="range" id="fontIdSize" min="14" max="60" step="1" value="26" oninput="updatePreview()">
                     <div class="value-display" id="fontIdSizeValue">26 pt</div>
                 </div>
                 
-                <!-- Размер шрифта Тип/Швея -->
                 <div class="setting-group">
-                    <label>👤 Тип | Швея (размер)</label>
-                    <input type="range" id="fontTypeSize" min="10" max="28" step="1" value="18.5">
+                    <label>👤 Тип | Швея (размер 10-45 pt)</label>
+                    <input type="range" id="fontTypeSize" min="10" max="45" step="0.5" value="18.5" oninput="updatePreview()">
                     <div class="value-display" id="fontTypeSizeValue">18.5 pt</div>
                 </div>
                 
-                <!-- Размер шрифта Цена -->
                 <div class="setting-group">
-                    <label>💰 Цена (размер шрифта)</label>
-                    <input type="range" id="fontPriceSize" min="12" max="36" step="1" value="22">
+                    <label>💰 Цена (размер 12-55 pt)</label>
+                    <input type="range" id="fontPriceSize" min="12" max="55" step="1" value="22" oninput="updatePreview()">
                     <div class="value-display" id="fontPriceSizeValue">22 pt</div>
                 </div>
                 
-                <!-- Высота текстовой полосы -->
                 <div class="setting-group">
-                    <label>📏 Высота текстовой полосы</label>
-                    <input type="range" id="textHeight" min="60" max="150" step="5" value="105">
+                    <label>📏 Высота текстовой полосы (60-250 px)</label>
+                    <input type="range" id="textHeight" min="60" max="250" step="5" value="105" oninput="updatePreview()">
                     <div class="value-display" id="textHeightValue">105 px</div>
                 </div>
                 
-                <!-- Отображение полей -->
                 <div class="setting-group">
                     <label>👁️ Отображать поля:</label>
                     <div class="setting-row">
-                        <label style="display: flex; align-items: center;">
-                            <input type="checkbox" id="showId" checked> ID ковра
-                        </label>
-                        <label style="display: flex; align-items: center;">
-                            <input type="checkbox" id="showType" checked> Тип | Швея
-                        </label>
-                        <label style="display: flex; align-items: center;">
-                            <input type="checkbox" id="showPrice" checked> Цена
-                        </label>
-                        <label style="display: flex; align-items: center;">
-                            <input type="checkbox" id="showSize" checked> Размер/Материал
-                        </label>
+                        <label><input type="checkbox" id="showId" checked onchange="updatePreview()"> ID ковра</label>
+                        <label><input type="checkbox" id="showType" checked onchange="updatePreview()"> Тип | Швея</label>
+                        <label><input type="checkbox" id="showPrice" checked onchange="updatePreview()"> Цена</label>
+                        <label><input type="checkbox" id="showSize" checked onchange="updatePreview()"> Размер/Материал</label>
                     </div>
                 </div>
             </div>
+            
+            <div class="preset-buttons">
+                <span style="font-size: 12px; color: #666;">📌 Быстрые пресеты:</span>
+                <button class="preset-btn" onclick="applyPreset('small')">Мелкий текст</button>
+                <button class="preset-btn" onclick="applyPreset('large')">Крупный текст</button>
+                <button class="preset-btn" onclick="applyPreset('max_qr')">Максимальный QR</button>
+                <button class="preset-btn" onclick="applyPreset('compact')">Компактный</button>
+                <button class="preset-btn" onclick="applyPreset('huge_text')">Огромный текст</button>
+            </div>
+            
             <button class="reset-btn" onclick="resetSettings()">🔄 Сбросить настройки</button>
         </div>
         
-        <!-- Предпросмотр -->
         <div class="preview">
             <h3>📱 Предпросмотр (пример)</h3>
             <div class="preview-card">
-                <div class="preview-qr-area" id="previewQrArea" style="background: #f0f0f0; min-height: 200px; display: flex; justify-content: center; align-items: center;">
-                    <img id="previewQr" src="" alt="QR" style="max-width: 100%;">
+                <div class="preview-qr-area" id="previewQrArea">
+                    <img id="previewQr" src="" alt="QR" style="max-width: 100%; max-height: 250px; transition: max-width 0.2s;">
                 </div>
                 <div class="preview-text-area" id="previewTextArea">
                     <div class="preview-id" id="previewId">CARPET-0001</div>
@@ -335,6 +361,9 @@
                     <div class="preview-size" id="previewSize">Размер: 2x3 м | Материал: Шерсть</div>
                 </div>
             </div>
+            <p style="text-align: center; font-size: 12px; color: #888; margin-top: 10px;">
+                ⚡ Настройки применяются к PDF при нажатии на кнопку печати
+            </p>
         </div>
         
         <form method="GET" class="filter-form" id="filterForm">
@@ -400,8 +429,8 @@
         
         <div style="margin-top: 30px;">
             <h3>📋 Список ковров для печати ({{ carpets|length }} шт.):</h3>
-            <div style="max-height: 300px; overflow-y: auto; margin-top: 10px;">
-                <table>
+            <div style="max-height: 300px; overflow-y: auto; margin-top: 10px; border: 1px solid #eee; border-radius: 10px;">
+                <table style="width: 100%;">
                     <thead>
                         <tr><th>ID</th><th>Тип</th><th>Швея</th><th>Цена</th><th>Размер</th><th>Статус</th></tr>
                     </thead>
@@ -411,9 +440,9 @@
                             <td><strong>{{ carpet.carpet_id }}</strong></td>
                             <td>{{ carpet.carpet_type_ref.name if carpet.carpet_type_ref else '-' }}</td>
                             <td>{{ carpet.craftsman_ref.name if carpet.craftsman_ref else '-' }}</td>
-                            <td>{{ carpet.price }} ₽</td>
-                            <td>{{ carpet.size or '-' }}</td>
-                            <td>{% if carpet.status == 'created' %}📦 Создан{% elif carpet.status == 'scanned' %}✅ Отсканирован{% else %}💰 Продан{% endif %}</td>
+                            <td>{{ carpet.price }} ₽</strong></td>
+                            <td>{{ carpet.size or '-' }}</strong></td>
+                            <td>{% if carpet.status == 'created' %}📦 Создан{% elif carpet.status == 'scanned' %}✅ Отсканирован{% else %}💰 Продан{% endif %}</strong></td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -426,9 +455,98 @@
 </div>
 
 <script>
-    // Получение настроек
-    function getSettings() {
-        return {
+    // Функция обновления предпросмотра
+    function updatePreview() {
+        // Получаем значения настроек
+        const qrScale = parseFloat(document.getElementById('qrScale').value);
+        const fontIdSize = parseInt(document.getElementById('fontIdSize').value);
+        const fontTypeSize = parseFloat(document.getElementById('fontTypeSize').value);
+        const fontPriceSize = parseInt(document.getElementById('fontPriceSize').value);
+        const textHeight = parseInt(document.getElementById('textHeight').value);
+        const showId = document.getElementById('showId').checked;
+        const showType = document.getElementById('showType').checked;
+        const showPrice = document.getElementById('showPrice').checked;
+        const showSize = document.getElementById('showSize').checked;
+        
+        // Обновляем отображаемые значения
+        document.getElementById('qrScaleValue').innerText = Math.round(qrScale * 100) + '% от листа';
+        document.getElementById('fontIdSizeValue').innerText = fontIdSize + ' pt';
+        document.getElementById('fontTypeSizeValue').innerText = fontTypeSize + ' pt';
+        document.getElementById('fontPriceSizeValue').innerText = fontPriceSize + ' pt';
+        document.getElementById('textHeightValue').innerText = textHeight + ' px';
+        
+        // Обновляем элементы предпросмотра
+        const previewId = document.getElementById('previewId');
+        const previewType = document.getElementById('previewType');
+        const previewPrice = document.getElementById('previewPrice');
+        const previewSize = document.getElementById('previewSize');
+        const previewTextArea = document.getElementById('previewTextArea');
+        const previewQr = document.getElementById('previewQr');
+        
+        // Обновляем видимость
+        previewId.style.display = showId ? 'block' : 'none';
+        previewType.style.display = showType ? 'block' : 'none';
+        previewPrice.style.display = showPrice ? 'block' : 'none';
+        previewSize.style.display = showSize ? 'block' : 'none';
+        
+        // Обновляем размеры шрифтов
+        previewId.style.fontSize = fontIdSize + 'px';
+        previewType.style.fontSize = fontTypeSize + 'px';
+        previewPrice.style.fontSize = fontPriceSize + 'px';
+        previewSize.style.fontSize = Math.max(10, fontPriceSize - 8) + 'px';
+        
+        // Обновляем высоту текстовой области
+        previewTextArea.style.padding = (textHeight / 8) + 'px 12px';
+        
+        // Обновляем размер QR в предпросмотре
+        if (previewQr) {
+            previewQr.style.maxWidth = (qrScale * 300) + 'px';
+        }
+        
+        // Сохраняем настройки
+        saveSettings();
+        updateLinks();
+    }
+    
+    // Применение пресетов
+    function applyPreset(preset) {
+        if (preset === 'small') {
+            document.getElementById('fontIdSize').value = 18;
+            document.getElementById('fontTypeSize').value = 12;
+            document.getElementById('fontPriceSize').value = 14;
+            document.getElementById('textHeight').value = 80;
+            document.getElementById('qrScale').value = 0.85;
+        } else if (preset === 'large') {
+            document.getElementById('fontIdSize').value = 36;
+            document.getElementById('fontTypeSize').value = 24;
+            document.getElementById('fontPriceSize').value = 30;
+            document.getElementById('textHeight').value = 140;
+            document.getElementById('qrScale').value = 0.8;
+        } else if (preset === 'max_qr') {
+            document.getElementById('qrScale').value = 1.0;
+            document.getElementById('textHeight').value = 70;
+            document.getElementById('fontIdSize').value = 20;
+            document.getElementById('fontTypeSize').value = 14;
+            document.getElementById('fontPriceSize').value = 18;
+        } else if (preset === 'compact') {
+            document.getElementById('qrScale').value = 0.7;
+            document.getElementById('fontIdSize').value = 16;
+            document.getElementById('fontTypeSize').value = 11;
+            document.getElementById('fontPriceSize').value = 13;
+            document.getElementById('textHeight').value = 65;
+        } else if (preset === 'huge_text') {
+            document.getElementById('qrScale').value = 0.55;
+            document.getElementById('fontIdSize').value = 55;
+            document.getElementById('fontTypeSize').value = 38;
+            document.getElementById('fontPriceSize').value = 48;
+            document.getElementById('textHeight').value = 220;
+        }
+        updatePreview();
+    }
+    
+    // Сохранение настроек
+    function saveSettings() {
+        const settings = {
             qr_scale: parseFloat(document.getElementById('qrScale').value),
             font_id_size: parseInt(document.getElementById('fontIdSize').value),
             font_type_size: parseFloat(document.getElementById('fontTypeSize').value),
@@ -439,15 +557,10 @@
             show_price: document.getElementById('showPrice').checked,
             show_size: document.getElementById('showSize').checked
         };
-    }
-    
-    // Сохранение настроек в localStorage
-    function saveSettings() {
-        const settings = getSettings();
         localStorage.setItem('qrPrintSettings', JSON.stringify(settings));
     }
     
-    // Загрузка настроек из localStorage
+    // Загрузка настроек
     function loadSettings() {
         const saved = localStorage.getItem('qrPrintSettings');
         if (saved) {
@@ -462,12 +575,14 @@
                 document.getElementById('showType').checked = settings.show_type !== false;
                 document.getElementById('showPrice').checked = settings.show_price !== false;
                 document.getElementById('showSize').checked = settings.show_size !== false;
-                updateDisplays();
+                updatePreview();
             } catch(e) {}
+        } else {
+            updatePreview();
         }
-        updatePreview();
     }
     
+    // Сброс настроек
     function resetSettings() {
         document.getElementById('qrScale').value = 0.85;
         document.getElementById('fontIdSize').value = 26;
@@ -478,54 +593,23 @@
         document.getElementById('showType').checked = true;
         document.getElementById('showPrice').checked = true;
         document.getElementById('showSize').checked = true;
-        updateDisplays();
-        saveSettings();
         updatePreview();
     }
     
-    function updateDisplays() {
-        document.getElementById('qrScaleValue').innerText = Math.round(document.getElementById('qrScale').value * 100) + '% от листа';
-        document.getElementById('fontIdSizeValue').innerText = document.getElementById('fontIdSize').value + ' pt';
-        document.getElementById('fontTypeSizeValue').innerText = document.getElementById('fontTypeSize').value + ' pt';
-        document.getElementById('fontPriceSizeValue').innerText = document.getElementById('fontPriceSize').value + ' pt';
-        document.getElementById('textHeightValue').innerText = document.getElementById('textHeight').value + ' px';
-    }
-    
-    // Обновление предпросмотра
-    async function updatePreview() {
-        const settings = getSettings();
-        
-        // Получаем первый QR-код для предпросмотра
-        const firstCarpet = {{ carpets[0].carpet_id if carpets else 'null'|tojson }};
-        if (firstCarpet) {
-            document.getElementById('previewQr').src = '/get_qr/' + firstCarpet + '?t=' + Date.now();
-        }
-        
-        // Обновляем текст предпросмотра
-        const previewId = document.getElementById('previewId');
-        const previewType = document.getElementById('previewType');
-        const previewPrice = document.getElementById('previewPrice');
-        const previewSize = document.getElementById('previewSize');
-        const previewTextArea = document.getElementById('previewTextArea');
-        
-        previewId.style.display = settings.show_id ? 'block' : 'none';
-        previewId.style.fontSize = settings.font_id_size + 'px';
-        
-        previewType.style.display = settings.show_type ? 'block' : 'none';
-        previewType.style.fontSize = settings.font_type_size + 'px';
-        
-        previewPrice.style.display = settings.show_price ? 'block' : 'none';
-        previewPrice.style.fontSize = settings.font_price_size + 'px';
-        
-        previewSize.style.display = settings.show_size ? 'block' : 'none';
-        
-        // Корректируем высоту текстовой области
-        previewTextArea.style.padding = (settings.text_height / 8) + 'px 12px';
-    }
-    
-    // Обновление ссылок с параметрами
+    // Обновление ссылок
     function updateLinks() {
-        const settings = getSettings();
+        const settings = {
+            qr_scale: parseFloat(document.getElementById('qrScale').value),
+            font_id_size: parseInt(document.getElementById('fontIdSize').value),
+            font_type_size: parseFloat(document.getElementById('fontTypeSize').value),
+            font_price_size: parseInt(document.getElementById('fontPriceSize').value),
+            text_height: parseInt(document.getElementById('textHeight').value),
+            show_id: document.getElementById('showId').checked,
+            show_type: document.getElementById('showType').checked,
+            show_price: document.getElementById('showPrice').checked,
+            show_size: document.getElementById('showSize').checked
+        };
+        
         const params = new URLSearchParams({
             qr_scale: settings.qr_scale,
             font_id_size: settings.font_id_size,
@@ -538,7 +622,6 @@
             show_size: settings.show_size
         });
         
-        // Получаем текущие фильтры
         const carpetType = document.getElementById('carpetTypeSelect').value;
         const craftsman = document.getElementById('craftsmanSelect').value;
         const status = document.getElementById('statusSelect').value;
@@ -547,54 +630,37 @@
         if (craftsman) params.append('craftsman_id', craftsman);
         if (status) params.append('status', status);
         
-        // Обновляем ссылки
         document.getElementById('zipLink').href = '/generate_qr_zip?' + params.toString();
         document.getElementById('pdfGridLink').href = '/generate_qr_pdf?' + params.toString();
         document.getElementById('pdfSingleLink').href = '/generate_single_pages_pdf?' + params.toString();
     }
     
-    // Обработчики изменений
-    const rangeInputs = ['qrScale', 'fontIdSize', 'fontTypeSize', 'fontPriceSize', 'textHeight'];
-    rangeInputs.forEach(id => {
-        document.getElementById(id).addEventListener('input', () => {
-            updateDisplays();
-            saveSettings();
-            updatePreview();
-            updateLinks();
-        });
-    });
+    // Загружаем QR для предпросмотра
+    function loadPreviewQR() {
+        const firstCarpet = {{ carpets[0].carpet_id if carpets else 'null'|tojson }};
+        if (firstCarpet) {
+            document.getElementById('previewQr').src = '/get_qr/' + firstCarpet + '?t=' + Date.now();
+        }
+    }
     
-    const checkboxes = ['showId', 'showType', 'showPrice', 'showSize'];
-    checkboxes.forEach(id => {
-        document.getElementById(id).addEventListener('change', () => {
-            saveSettings();
-            updatePreview();
-            updateLinks();
-        });
-    });
-    
-    // Фильтры
+    // Обработчики фильтров
     document.getElementById('carpetTypeSelect').addEventListener('change', () => {
+        saveSettings();
         document.getElementById('filterForm').submit();
     });
     document.getElementById('craftsmanSelect').addEventListener('change', () => {
+        saveSettings();
         document.getElementById('filterForm').submit();
     });
     document.getElementById('statusSelect').addEventListener('change', () => {
+        saveSettings();
         document.getElementById('filterForm').submit();
     });
     
     // Инициализация
     loadSettings();
+    loadPreviewQR();
     updateLinks();
-    
-    // Загрузка первого QR для предпросмотра
-    setTimeout(() => {
-        const firstCarpet = {{ carpets[0].carpet_id if carpets else 'null'|tojson }};
-        if (firstCarpet) {
-            document.getElementById('previewQr').src = '/get_qr/' + firstCarpet;
-        }
-    }, 100);
 </script>
 </body>
 </html>
