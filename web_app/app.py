@@ -57,7 +57,9 @@ try:
 
     font_paths = [
         "C:/Windows/Fonts/arial.ttf",
+        "C:/Windows/Fonts/arialbd.ttf",
         "/System/Library/Fonts/Arial.ttf",
+        "/System/Library/Fonts/Supplemental/Arial.ttf",
         os.path.join(os.path.dirname(__file__), 'LiberationSans-Regular.ttf'),
     ]
 
@@ -71,6 +73,7 @@ try:
                 break
             except Exception as e:
                 print(f"[FONT] Ошибка: {e}")
+
     if not FONT_REGISTERED:
         print("[FONT] ⚠️ Русский шрифт не найден, используется стандартный")
 except ImportError:
@@ -101,6 +104,8 @@ def find_data_folder():
     possible_folders.append(user_folder)
     docs_folder = os.path.join(os.path.expanduser('~'), 'Documents', 'CarpetManager')
     possible_folders.append(docs_folder)
+    temp_folder = os.path.join(os.environ.get('TEMP', os.path.expanduser('~')), 'CarpetManager')
+    possible_folders.append(temp_folder)
     local_folder = os.path.join(base_path, 'Data')
     possible_folders.append(local_folder)
 
@@ -133,17 +138,22 @@ print(f"[DB] База данных: {DB_PATH}")
 print(f"[QR] QR-коды: {QR_FOLDER}")
 
 def find_free_port():
-    preferred_ports = [5000, 5001, 5002, 8080, 8081]
+    preferred_ports = [5000, 5001, 5002, 8080, 8081, 3000, 8000, 8888]
     for port in preferred_ports:
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.bind(('', port))
+                s.listen(1)
                 return port
         except OSError:
             continue
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(('', 0))
-        return s.getsockname()[1]
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(('', 0))
+            s.listen(1)
+            return s.getsockname()[1]
+    except:
+        return 8080
 
 # ========== МОДЕЛИ ==========
 class CarpetType(db.Model):
@@ -315,12 +325,128 @@ def init_database():
         else:
             set_db_version(DB_VERSION)
 
+# ========== ФУНКЦИИ ==========
+def generate_qr_code(carpet_id, _):
+    qr = qrcode.QRCode(version=1, box_size=10, border=4, error_correction=qrcode.constants.ERROR_CORRECT_M)
+    qr.add_data(carpet_id)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    path = os.path.join(QR_FOLDER, f"carpet_{carpet_id}.png")
+    img.save(path)
+    return path
+
+def generate_next_id():
+    last = Carpet.query.order_by(Carpet.id.desc()).first()
+    if last:
+        try:
+            n = int(last.carpet_id.split('-')[1]) + 1
+        except:
+            n = Carpet.query.count() + 1
+    else:
+        n = 1
+    return f"CARPET-{n:04d}"
+
+def forecast_sales(days=30):
+    try:
+        orders = MarketplaceOrder.query.filter_by(status='shipped').all()
+        if len(orders) < 7:
+            return {
+                "error": None, "no_data": True,
+                "message": "Недостаточно данных для прогноза (нужно минимум 7 отправленных заказов)",
+                "data": [], "total": 0, "daily_avg": 0,
+                "historical_data": [], "historical_dates": []
+            }
+
+        daily_counts = defaultdict(int)
+        for order in orders:
+            date_str = order.shipped_at if order.shipped_at else order.ordered_at
+            if date_str:
+                date = date_str[:10]
+                daily_counts[date] += 1
+
+        if not daily_counts:
+            return {
+                "error": None, "no_data": True,
+                "message": "Нет данных о датах отправки заказов",
+                "data": [], "total": 0, "daily_avg": 0
+            }
+
+        dates = sorted(daily_counts.keys())
+        counts = [daily_counts[d] for d in dates]
+
+        if len(counts) >= 7:
+            avg = sum(counts[-7:]) / 7
+        else:
+            avg = sum(counts) / len(counts)
+
+        forecast = [max(0, round(avg * (0.9 + (i * 0.02)))) for i in range(days)]
+
+        weekday_weights = {0: 1.0, 1: 1.0, 2: 1.0, 3: 1.0, 4: 1.2, 5: 1.5, 6: 1.1}
+        today = datetime.now()
+        forecast_with_season = []
+        forecast_dates = []
+        for i in range(days):
+            forecast_date = today + timedelta(days=i+1)
+            weight = weekday_weights.get(forecast_date.weekday(), 1.0)
+            value = round(forecast[i] * weight)
+            forecast_with_season.append(value)
+            forecast_dates.append(forecast_date.strftime("%Y-%m-%d"))
+
+        return {
+            "error": None, "no_data": False,
+            "method": "Скользящее среднее (7 дней) на основе заказов маркетплейсов",
+            "data": forecast_with_season, "dates": forecast_dates,
+            "total": sum(forecast_with_season),
+            "daily_avg": round(sum(forecast_with_season) / days, 1),
+            "historical_data": counts[-30:], "historical_dates": dates[-30:]
+        }
+    except Exception as e:
+        print(f"[FORECAST] Ошибка: {e}")
+        traceback.print_exc()
+        return {"error": str(e), "no_data": True, "data": [], "total": 0, "daily_avg": 0}
+
+def calculate_trend():
+    try:
+        orders = MarketplaceOrder.query.filter_by(status='shipped').all()
+        if len(orders) < 14:
+            return {"trend": "unknown", "percent": 0, "last_week": 0, "prev_week": 0}
+
+        now = datetime.now()
+        last_week = 0
+        prev_week = 0
+
+        for order in orders:
+            date_str = order.shipped_at if order.shipped_at else order.ordered_at
+            if date_str:
+                try:
+                    order_date = datetime.strptime(date_str[:10], "%Y-%m-%d")
+                    days_diff = (now - order_date).days
+                    if days_diff <= 7:
+                        last_week += 1
+                    elif days_diff <= 14:
+                        prev_week += 1
+                except:
+                    continue
+
+        if prev_week == 0:
+            percent = 100 if last_week > 0 else 0
+        else:
+            percent = round((last_week - prev_week) / prev_week * 100, 1)
+
+        if percent > 10:
+            trend = "growing"
+        elif percent < -10:
+            trend = "declining"
+        else:
+            trend = "stable"
+
+        return {"trend": trend, "percent": percent, "last_week": last_week, "prev_week": prev_week}
+    except Exception as e:
+        print(f"[TREND] Ошибка: {e}")
+        return {"trend": "unknown", "percent": 0, "last_week": 0, "prev_week": 0}
+
 # ========== ФУНКЦИИ ДЛЯ WB АНАЛИТИКИ ==========
 def get_wb_analytics(api_key, account_id, period_days=30):
-    """
-    Получение аналитики по товарам Wildberries
-    Использует правильный эндпоинт: /api/analytics/v3/sales-funnel/products
-    """
     try:
         end_date = datetime.now()
         start_date = end_date - timedelta(days=period_days)
@@ -358,7 +484,7 @@ def get_wb_analytics(api_key, account_id, period_days=30):
         else:
             logger.error(f"Ошибка API: {response.status_code}")
             if response.status_code == 401:
-                flash(f'⚠️ Токен Wildberries недействителен или не имеет прав на аналитику', 'warning')
+                flash('⚠️ Токен Wildberries не имеет прав на аналитику. Нужен токен с доступом к Статистике.', 'warning')
             return create_demo_analytics()
             
     except Exception as e:
@@ -366,7 +492,6 @@ def get_wb_analytics(api_key, account_id, period_days=30):
         return create_demo_analytics()
 
 def create_demo_analytics():
-    """Создает демонстрационные данные для аналитики"""
     demo_products = []
     carpets = Carpet.query.all()
     
@@ -380,7 +505,7 @@ def create_demo_analytics():
                 nm_id = int(carpet.carpet_id.split('-')[1]) if carpet.carpet_id and '-' in carpet.carpet_id else 1000000 + i
             except:
                 nm_id = 1000000 + i
-            product_name = carpet.carpet_type_ref.name if hasattr(carpet, 'carpet_type_ref') and carpet.carpet_type_ref else f'Ковер {carpet.carpet_id}'
+            product_name = carpet.carpet_type_ref.name if carpet.carpet_type_ref else f'Ковер {carpet.carpet_id}'
             views = 500 + (i * 150) + (abs(hash(str(carpet.id))) % 500)
         
         cart_adds = int(views * 0.05)
@@ -410,7 +535,6 @@ def create_demo_analytics():
     return demo_products
 
 def sync_wb_analytics(account_id):
-    """Синхронизация аналитики Wildberries"""
     acc = db.session.get(MarketplaceAccount, account_id)
     if not acc or not acc.is_active or acc.marketplace != 'wb':
         return 0
@@ -478,7 +602,9 @@ def sync_wb_analytics(account_id):
         db.session.add(cache)
         db.session.commit()
         
-        flash(f'📊 WB Аналитика: {new} новых, {updated} обновлено', 'success')
+        if new > 0 or updated > 0:
+            flash(f'📊 WB Аналитика: {new} новых, {updated} обновлено', 'success')
+        
         return updated
         
     except Exception as e:
@@ -486,95 +612,228 @@ def sync_wb_analytics(account_id):
         flash(f'❌ Ошибка: {str(e)[:200]}', 'error')
         return 0
 
-# ========== ОСТАЛЬНЫЕ ФУНКЦИИ ==========
-def generate_qr_code(carpet_id, _):
-    qr = qrcode.QRCode(version=1, box_size=10, border=4)
-    qr.add_data(carpet_id)
-    qr.make(fit=True)
-    img = qr.make_image(fill_color="black", back_color="white")
-    path = os.path.join(QR_FOLDER, f"carpet_{carpet_id}.png")
-    img.save(path)
-    return path
-
-def generate_next_id():
-    last = Carpet.query.order_by(Carpet.id.desc()).first()
-    if last:
-        try:
-            n = int(last.carpet_id.split('-')[1]) + 1
-        except:
-            n = Carpet.query.count() + 1
-    else:
-        n = 1
-    return f"CARPET-{n:04d}"
-
-def forecast_sales(days=30):
-    try:
-        orders = MarketplaceOrder.query.filter_by(status='shipped').all()
-        if len(orders) < 7:
-            return {"no_data": True, "message": "Недостаточно данных", "data": [], "total": 0}
-        
-        daily_counts = defaultdict(int)
-        for order in orders:
-            date_str = order.shipped_at or order.ordered_at
-            if date_str:
-                daily_counts[date_str[:10]] += 1
-        
-        if not daily_counts:
-            return {"no_data": True, "data": [], "total": 0}
-        
-        counts = list(daily_counts.values())
-        avg = sum(counts[-7:]) / 7 if len(counts) >= 7 else sum(counts) / len(counts)
-        forecast = [max(0, round(avg * (0.9 + i * 0.02))) for i in range(days)]
-        
-        return {"no_data": False, "data": forecast, "total": sum(forecast)}
-    except Exception as e:
-        return {"error": str(e), "no_data": True}
-
 def sync_account_orders(account_id):
     acc = db.session.get(MarketplaceAccount, account_id)
     if not acc or not acc.is_active:
+        logger.warning(f"Аккаунт {account_id} не активен или не найден")
         return 0
     
     new = 0
+    all_orders = []
+    
     try:
         if acc.marketplace == 'wb':
             headers = {"Authorization": acc.api_key}
-            response = requests.get("https://marketplace-api.wildberries.ru/api/v3/dbs/orders/new", headers=headers, timeout=30)
-            if response.status_code == 200:
-                for o in response.json().get('orders', []):
-                    if not MarketplaceOrder.query.filter_by(marketplace='wb', order_id=str(o.get('id'))).first():
-                        mo = MarketplaceOrder(
-                            account_id=acc.id, marketplace='wb', order_id=str(o.get('id')),
-                            status='new', ordered_at=o.get('createdAt', ''), price=o.get('price', 0)
-                        )
-                        db.session.add(mo)
-                        new += 1
-                db.session.commit()
-                if new > 0:
-                    flash(f'✅ {acc.account_name}: {new} новых заказов', 'success')
+            request_success = False
+            
+            url_new = "https://marketplace-api.wildberries.ru/api/v3/dbs/orders/new"
+            logger.info(f"Запрос к WB (новые заказы): {url_new}")
+            
+            try:
+                response_new = requests.get(url_new, headers=headers, timeout=30)
+                logger.info(f"Статус ответа (новые): {response_new.status_code}")
+                
+                if response_new.status_code == 200:
+                    data_new = response_new.json()
+                    new_orders = data_new.get('orders', [])
+                    logger.info(f"Получено новых заказов: {len(new_orders)}")
+                    all_orders.extend(new_orders)
+                    request_success = True
+                else:
+                    logger.error(f"Ошибка получения новых заказов: {response_new.status_code} - {response_new.text[:200]}")
+            except Exception as e:
+                logger.error(f"Исключение при получении новых заказов: {e}")
+            
+            url_completed = "https://marketplace-api.wildberries.ru/api/v3/dbs/orders"
+            params = {
+                "limit": 100, "next": 0,
+                "dateFrom": int((datetime.now() - timedelta(days=30)).timestamp()),
+                "dateTo": int(datetime.now().timestamp())
+            }
+            logger.info(f"Запрос к WB (история): {url_completed}")
+            
+            try:
+                response_completed = requests.get(url_completed, headers=headers, params=params, timeout=30)
+                logger.info(f"Статус ответа (история): {response_completed.status_code}")
+                
+                if response_completed.status_code == 200:
+                    data_completed = response_completed.json()
+                    completed_orders = data_completed.get('orders', [])
+                    logger.info(f"Получено завершённых заказов: {len(completed_orders)}")
+                    all_orders.extend(completed_orders)
+                    request_success = True
+                else:
+                    logger.error(f"Ошибка получения истории: {response_completed.status_code} - {response_completed.text[:200]}")
+            except Exception as e:
+                logger.error(f"Исключение при получении истории: {e}")
+            
+            if not request_success:
+                flash(f'❌ {acc.account_name}: не удалось подключиться к Wildberries API. Проверьте API-ключ и интернет.', 'error')
+                return 0
+            
+            logger.info(f"Всего заказов для обработки: {len(all_orders)}")
+            
+            for o in all_orders:
+                existing = MarketplaceOrder.query.filter_by(marketplace='wb', order_id=str(o.get('id'))).first()
+                
+                if not existing:
+                    address = o.get('address', {})
+                    mo = MarketplaceOrder(
+                        account_id=acc.id, marketplace='wb', order_id=str(o.get('id')),
+                        customer_name='', customer_phone='',
+                        delivery_address=address.get('fullAddress', ''), status='new',
+                        ordered_at=o.get('createdAt', ''), price=o.get('price', 0),
+                        products_info=json.dumps(o.get('skus', [])), wb_supply_id=str(o.get('warehouseId', ''))
+                    )
+                    db.session.add(mo)
+                    new += 1
+            
+            db.session.commit()
+            
+            if new > 0:
+                flash(f'✅ {acc.account_name}: получено {new} новых заказов', 'success')
+                    
         elif acc.marketplace == 'ozon':
-            headers = {"Api-Key": acc.api_key, "Client-Id": acc.client_id}
-            payload = {"filter": {"since": (datetime.now() - timedelta(days=30)).isoformat()}, "limit": 100}
-            response = requests.post("https://api-seller.ozon.ru/v3/posting/fbs/list", headers=headers, json=payload, timeout=30)
-            if response.status_code == 200:
-                for o in response.json().get('result', {}).get('postings', []):
-                    if not MarketplaceOrder.query.filter_by(marketplace='ozon', order_id=o.get('posting_number')).first():
-                        mo = MarketplaceOrder(
-                            account_id=acc.id, marketplace='ozon', order_id=o.get('posting_number'),
-                            status='new', ordered_at=o.get('created_at', '')
-                        )
-                        db.session.add(mo)
-                        new += 1
-                db.session.commit()
-                if new > 0:
-                    flash(f'✅ {acc.account_name}: {new} новых заказов', 'success')
+            url = "https://api-seller.ozon.ru/v3/posting/fbs/list"
+            headers = {"Api-Key": acc.api_key, "Client-Id": acc.client_id, "Content-Type": "application/json"}
+            payload = {"dir": "desc", "filter": {"since": (datetime.now() - timedelta(days=30)).isoformat(), "status": "awaiting_packaging"}, "limit": 100}
+            
+            logger.info(f"Запрос к Ozon API")
+            
+            try:
+                response = requests.post(url, headers=headers, json=payload, timeout=30)
+                logger.info(f"Статус ответа Ozon: {response.status_code}")
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    orders = data.get('result', {}).get('postings', [])
+                    logger.info(f"Получено заказов: {len(orders)}")
+                    
+                    for o in orders:
+                        if not MarketplaceOrder.query.filter_by(marketplace='ozon', order_id=o.get('posting_number')).first():
+                            cust = o.get('customer', {})
+                            deliv = o.get('delivery', {})
+                            prods = o.get('products', [])
+                            mo = MarketplaceOrder(
+                                account_id=acc.id, marketplace='ozon', order_id=o.get('posting_number'),
+                                customer_name=cust.get('name', ''), customer_phone=cust.get('phone', ''),
+                                delivery_address=deliv.get('address', {}).get('address_txt', ''), status='new',
+                                ordered_at=o.get('created_at', ''),
+                                price=sum(p.get('price', 0) * p.get('quantity', 1) for p in prods),
+                                products_info=json.dumps(prods), ozon_posting_number=o.get('posting_number')
+                            )
+                            db.session.add(mo)
+                            new += 1
+                    
+                    db.session.commit()
+                    
+                    if new > 0:
+                        flash(f'✅ {acc.account_name}: получено {new} новых заказов', 'success')
+                else:
+                    error_msg = f"Ozon API ошибка {response.status_code}"
+                    logger.error(f"{error_msg}: {response.text[:200]}")
+                    flash(f'❌ Ошибка синхронизации {acc.account_name}: {error_msg}', 'error')
+                    return 0
+                    
+            except requests.exceptions.ConnectionError:
+                flash(f'❌ {acc.account_name}: ошибка соединения с Ozon API. Проверьте интернет.', 'error')
+                return 0
+            except Exception as e:
+                error_msg = str(e)
+                logger.error(f"Исключение при запросе к Ozon: {error_msg}")
+                flash(f'❌ Ошибка синхронизации {acc.account_name}: {error_msg[:200]}', 'error')
+                return 0
         
         acc.last_sync = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         db.session.commit()
+        
+        sync_log = MarketplaceSyncLog(
+            account_id=acc.id, sync_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            orders_found=len(all_orders) if acc.marketplace == 'wb' else len(orders) if 'orders' in locals() else 0,
+            orders_new=new, status='success'
+        )
+        db.session.add(sync_log)
+        db.session.commit()
+        
     except Exception as e:
-        flash(f'❌ Ошибка синхронизации {acc.account_name}: {str(e)[:100]}', 'error')
+        error_msg = str(e)
+        logger.exception(f"Ошибка синхронизации аккаунта {acc.account_name}: {error_msg}")
+        
+        sync_log = MarketplaceSyncLog(
+            account_id=acc.id, sync_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            error_message=error_msg, status='error'
+        )
+        db.session.add(sync_log)
+        db.session.commit()
+        
+        flash(f'❌ Ошибка синхронизации {acc.account_name}: {error_msg[:200]}', 'error')
     
     return new
+
+# ========== МАРШРУТЫ ДЛЯ ТОКЕНА ==========
+@app.route('/wb_token_input')
+def wb_token_input():
+    return render_template('wb_token_input.html')
+
+@app.route('/test_token_api', methods=['POST'])
+def test_token_api():
+    data = request.get_json()
+    api_key = data.get('api_key', '').strip()
+    
+    if not api_key:
+        return jsonify({'success': False, 'error': 'Токен не может быть пустым'})
+    
+    try:
+        headers = {"Authorization": api_key}
+        url = "https://marketplace-api.wildberries.ru/api/v3/dbs/orders/new"
+        response = requests.get(url, headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            return jsonify({'success': True, 'message': '✅ Токен работает! API отвечает корректно.'})
+        elif response.status_code == 401:
+            return jsonify({
+                'success': False, 
+                'error': '❌ Токен недействителен или не имеет прав!\n\nВозможные причины:\n1. Неправильный API-ключ\n2. Ключ не имеет прав на "Заказы" (Orders)\n3. Ключ истек\n\n👉 Получите новый токен в настройках WB: Настройки → Доступ к API'
+            })
+        else:
+            return jsonify({
+                'success': False, 
+                'error': f'⚠️ API вернул код {response.status_code}\n\nПроверьте правильность токена и наличие прав.'
+            })
+    except requests.exceptions.ConnectionError:
+        return jsonify({
+            'success': False, 
+            'error': '❌ Ошибка соединения с Wildberries API.\n\nПроверьте интернет-соединение.'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False, 
+            'error': f'❌ Ошибка: {str(e)}'
+        })
+
+@app.route('/save_wb_token', methods=['POST'])
+def save_wb_token():
+    data = request.get_json()
+    api_key = data.get('api_key', '').strip()
+    account_name = data.get('account_name', 'Wildberries Аккаунт').strip()
+    
+    if not api_key:
+        return jsonify({'success': False, 'error': 'Токен не может быть пустым'})
+    
+    existing = MarketplaceAccount.query.filter_by(api_key=api_key).first()
+    if existing:
+        return jsonify({'success': True, 'message': 'Токен уже существует в системе'})
+    
+    account = MarketplaceAccount(
+        marketplace='wb',
+        account_name=account_name,
+        api_key=api_key,
+        is_active=True
+    )
+    db.session.add(account)
+    db.session.commit()
+    
+    return jsonify({'success': True, 'message': f'✅ Токен для "{account_name}" успешно сохранен!'})
 
 # ========== ИНИЦИАЛИЗАЦИЯ ==========
 with app.app_context():
@@ -612,7 +871,7 @@ with app.app_context():
             c.qr_code_path = generate_qr_code(c.carpet_id, {})
         db.session.commit()
 
-# ========== МАРШРУТЫ ==========
+# ========== ОСНОВНЫЕ МАРШРУТЫ ==========
 @app.route('/')
 def index():
     return render_template('index.html',
@@ -635,18 +894,24 @@ def wb_analytics():
         'total_cart_adds': sum(a.cart_adds for a in analytics),
         'total_orders': sum(a.orders for a in analytics),
         'total_sales': sum(a.sales for a in analytics),
+        'avg_conversion_to_cart': 0,
+        'avg_conversion_to_order': 0,
+        'avg_conversion_to_sale': 0
     }
     
     if total_stats['total_views'] > 0:
+        total_stats['avg_conversion_to_cart'] = round((total_stats['total_cart_adds'] / total_stats['total_views']) * 100, 2)
+        total_stats['avg_conversion_to_order'] = round((total_stats['total_orders'] / total_stats['total_views']) * 100, 2)
         total_stats['avg_conversion_to_sale'] = round((total_stats['total_sales'] / total_stats['total_views']) * 100, 2)
     
     top_by_views = sorted(analytics, key=lambda x: x.views, reverse=True)[:10]
     top_by_sales = sorted(analytics, key=lambda x: x.sales, reverse=True)[:10]
+    top_by_conversion = sorted([a for a in analytics if a.views > 50], key=lambda x: x.conversion_to_sale, reverse=True)[:10]
     
     return render_template('wb_analytics.html',
                           accounts=accounts, analytics=analytics,
                           total_stats=total_stats, top_by_views=top_by_views,
-                          top_by_sales=top_by_sales)
+                          top_by_sales=top_by_sales, top_by_conversion=top_by_conversion)
 
 @app.route('/sync_wb_analytics/<int:account_id>')
 def sync_wb_analytics_route(account_id):
@@ -659,10 +924,33 @@ def sync_all_wb_analytics():
         sync_wb_analytics(acc.id)
     return redirect(url_for('wb_analytics'))
 
+@app.route('/wb_product_detail/<int:nm_id>')
+def wb_product_detail(nm_id):
+    analytic = WBProductAnalytics.query.filter_by(nm_id=nm_id).first_or_404()
+    return render_template('wb_product_detail.html', product=analytic)
+
 @app.route('/forecast')
 def forecast_page():
-    forecast = forecast_sales(30)
-    return render_template('forecast.html', forecast=forecast)
+    try:
+        forecast = forecast_sales(30)
+        trend = calculate_trend()
+        marketplace_stats = {
+            'total_orders': MarketplaceOrder.query.count(),
+            'shipped_orders': MarketplaceOrder.query.filter_by(status='shipped').count(),
+            'processing_orders': MarketplaceOrder.query.filter_by(status='processing').count(),
+            'ready_orders': MarketplaceOrder.query.filter_by(status='ready').count(),
+            'new_orders': MarketplaceOrder.query.filter_by(status='new').count(),
+            'total_revenue': db.session.query(db.func.sum(MarketplaceOrder.price)).filter(MarketplaceOrder.status == 'shipped').scalar() or 0,
+            'wb_orders': MarketplaceOrder.query.filter_by(marketplace='wb', status='shipped').count(),
+            'ozon_orders': MarketplaceOrder.query.filter_by(marketplace='ozon', status='shipped').count(),
+            'wb_revenue': db.session.query(db.func.sum(MarketplaceOrder.price)).filter(MarketplaceOrder.marketplace == 'wb', MarketplaceOrder.status == 'shipped').scalar() or 0,
+            'ozon_revenue': db.session.query(db.func.sum(MarketplaceOrder.price)).filter(MarketplaceOrder.marketplace == 'ozon', MarketplaceOrder.status == 'shipped').scalar() or 0,
+        }
+        return render_template('forecast.html', forecast=forecast, trend=trend, marketplace_stats=marketplace_stats)
+    except Exception as e:
+        print(f"[FORECAST_PAGE] Ошибка: {e}")
+        traceback.print_exc()
+        return render_template('forecast.html', forecast={"error": str(e), "no_data": True}, trend={"trend": "unknown", "percent": 0}, marketplace_stats={})
 
 @app.route('/add_carpet', methods=['POST'])
 def add_carpet():
@@ -685,22 +973,28 @@ def add_carpet_group():
     type_id = request.form['carpet_type_id']
     count = int(request.form['count'])
     craftsman_id = request.form['craftsman_id']
+    size = request.form.get('size','')
+    material = request.form.get('material','')
+    color = request.form.get('color','')
     ct = db.session.get(CarpetType, type_id)
-    if not ct:
-        flash('Ошибка: тип не найден', 'error')
+    cr = db.session.get(Craftsman, craftsman_id)
+    if not ct or not cr:
+        flash('Ошибка: тип или швея не найдены', 'error')
         return redirect(url_for('index'))
-    
+    created = []
     for i in range(count):
         cid = generate_next_id()
         carpet = Carpet(
             carpet_id=cid, carpet_type_id=type_id, craftsman_id=craftsman_id,
-            price=ct.base_price, status='created'
+            price=ct.base_price, size=size, material=material, color=color,
+            status='created', notes=f'Групповое {i+1}/{count}'
         )
         db.session.add(carpet)
         db.session.flush()
         carpet.qr_code_path = generate_qr_code(cid, {})
+        created.append(cid)
     db.session.commit()
-    flash(f'Создано {count} ковров типа "{ct.name}"', 'success')
+    flash(f'Создано {len(created)} ковров типа "{ct.name}"', 'success')
     return redirect(url_for('index'))
 
 @app.route('/edit_carpet/<int:id>', methods=['GET','POST'])
@@ -714,6 +1008,8 @@ def edit_carpet(id):
         carpet.material = request.form.get('material','')
         carpet.color = request.form.get('color','')
         carpet.notes = request.form.get('notes','')
+        db.session.commit()
+        carpet.qr_code_path = generate_qr_code(carpet.carpet_id, {})
         db.session.commit()
         flash(f'Ковёр {carpet.carpet_id} обновлён', 'success')
         return redirect(url_for('index'))
@@ -752,21 +1048,32 @@ def edit_craftsman(id):
 @app.route('/delete_craftsman/<int:id>')
 def delete_craftsman(id):
     c = Craftsman.query.get_or_404(id)
+    cnt = len(c.carpets)
     for carpet in c.carpets:
         if carpet.qr_code_path and os.path.exists(carpet.qr_code_path):
             os.remove(carpet.qr_code_path)
     db.session.delete(c)
     db.session.commit()
-    flash(f'Швея "{c.name}" удалена', 'success')
+    flash(f'Швея "{c.name}" удалена с {cnt} коврами', 'success')
     return redirect(url_for('index'))
 
 @app.route('/craftsman/<int:id>')
 def craftsman_detail(id):
     c = Craftsman.query.get_or_404(id)
     carpets = Carpet.query.filter_by(craftsman_id=id).all()
+    type_stats = {}
+    month_stats = {}
+    for carpet in carpets:
+        tn = carpet.carpet_type_ref.name if carpet.carpet_type_ref else 'Неизвестно'
+        type_stats[tn] = type_stats.get(tn,0)+1
+        if carpet.scanned_at:
+            m = carpet.scanned_at[:7]
+            month_stats[m] = month_stats.get(m,0)+1
     return render_template('craftsman_detail.html', craftsman=c, carpets=carpets,
                           total_count=len(carpets),
-                          scanned_count=len([x for x in carpets if x.status=='scanned']))
+                          scanned_count=len([x for x in carpets if x.status=='scanned']),
+                          total_price=sum(x.price for x in carpets),
+                          type_stats=type_stats, month_stats=month_stats)
 
 @app.route('/types')
 def types_list():
@@ -776,10 +1083,11 @@ def types_list():
 def add_type():
     name = request.form['name']
     price = float(request.form['base_price'])
+    desc = request.form.get('description','')
     if CarpetType.query.filter_by(name=name).first():
         flash('Тип уже существует', 'error')
     else:
-        db.session.add(CarpetType(name=name, base_price=price, description=request.form.get('description','')))
+        db.session.add(CarpetType(name=name, base_price=price, description=desc))
         db.session.commit()
         flash(f'Тип "{name}" добавлен', 'success')
     return redirect(url_for('types_list'))
@@ -810,22 +1118,41 @@ def delete_type(id):
 @app.route('/scan_qr', methods=['POST'])
 def scan_qr():
     data = request.json.get('qr_code')
+    scanner = request.json.get('scanner','admin')
     carpet = Carpet.query.filter_by(carpet_id=data).first()
-    
+    log = ScanLog(carpet_id=data, scanned_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"), scanned_by=scanner)
     if not carpet:
+        log.result = 'not_found'
+        db.session.add(log)
+        db.session.commit()
         return jsonify({'success': False, 'message': '❌ Ковёр не найден'})
-    
     if carpet.status == 'scanned':
-        return jsonify({'success': False, 'already_scanned': True, 'scanned_at': carpet.scanned_at})
-    
+        log.result = 'already_scanned'
+        db.session.add(log)
+        db.session.commit()
+        return jsonify({'success': False, 'already_scanned': True, 'carpet_id': carpet.carpet_id,
+                       'scanned_at': carpet.scanned_at, 'message': f'⚠️ Уже отсканирован {carpet.scanned_at}'})
     carpet.status = 'scanned'
     carpet.scanned_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    carpet.scanned_by = scanner
+    log.result = 'success'
+    db.session.add(log)
     db.session.commit()
-    
-    return jsonify({'success': True, 'carpet_id': carpet.carpet_id,
-                   'carpet_type': carpet.carpet_type_ref.name if carpet.carpet_type_ref else '-',
-                   'craftsman': carpet.craftsman_ref.name if carpet.craftsman_ref else '-',
-                   'price': carpet.price, 'scanned_at': carpet.scanned_at})
+    ct = db.session.get(CarpetType, carpet.carpet_type_id)
+    cr = db.session.get(Craftsman, carpet.craftsman_id)
+    return jsonify({'success': True, 'first_time': True, 'carpet_id': carpet.carpet_id,
+                   'carpet_type': ct.name if ct else '-', 'craftsman': cr.name if cr else '-',
+                   'price': carpet.price, 'size': carpet.size or '-', 'material': carpet.material or '-',
+                   'color': carpet.color or '-', 'scanned_at': carpet.scanned_at})
+
+@app.route('/mark_sold/<int:id>', methods=['POST'])
+def mark_sold(id):
+    carpet = Carpet.query.get_or_404(id)
+    if carpet.status == 'scanned':
+        carpet.status = 'sold'
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Ковёр отмечен как проданный'})
+    return jsonify({'success': False, 'message': 'Ковёр ещё не отсканирован'})
 
 @app.route('/get_qr/<carpet_id>')
 def get_qr(carpet_id):
@@ -834,15 +1161,68 @@ def get_qr(carpet_id):
         return send_file(carpet.qr_code_path, mimetype='image/png')
     return "QR не найден", 404
 
+@app.route('/print_qr/<carpet_id>')
+def print_qr(carpet_id):
+    carpet = Carpet.query.filter_by(carpet_id=carpet_id).first()
+    if carpet:
+        return render_template('print_qr.html', carpet=carpet, carpet_types=CarpetType.query.all())
+    return "Ковёр не найден", 404
+
+@app.route('/print_single_pdf/<carpet_id>')
+def print_single_pdf(carpet_id):
+    carpet = Carpet.query.filter_by(carpet_id=carpet_id).first()
+    if not carpet:
+        return "Ковёр не найден", 404
+    try:
+        from reportlab.lib.pagesizes import A4
+        from reportlab.pdfgen import canvas
+        from reportlab.lib.utils import ImageReader
+        from reportlab.lib.units import mm
+        buffer = io.BytesIO()
+        c = canvas.Canvas(buffer, pagesize=A4)
+        w, h = A4
+        sticker_w = 30*mm
+        sticker_h = 20*mm
+        xc = (w - sticker_w)/2
+        yc = (h - sticker_h)/2
+        c.rect(xc, yc, sticker_w, sticker_h)
+        qr_sz = 12*mm
+        qr_x = xc + 1.5*mm
+        qr_y = yc + 2*mm
+        if carpet.qr_code_path and os.path.exists(carpet.qr_code_path):
+            c.drawImage(ImageReader(carpet.qr_code_path), qr_x, qr_y, qr_sz, qr_sz)
+        tx = qr_x + qr_sz + 1*mm
+        ty = yc + sticker_h - 2.5*mm
+        ct = db.session.get(CarpetType, carpet.carpet_type_id)
+        cr = db.session.get(Craftsman, carpet.craftsman_id)
+        type_name = ct.name if ct else '-'
+        craftsman_name = cr.name if cr else '-'
+        if FONT_REGISTERED:
+            c.setFont("RussianFont", 5)
+        else:
+            c.setFont("Helvetica", 5)
+        c.drawString(tx, ty, carpet.carpet_id)
+        c.drawString(tx, ty-2.5*mm, type_name)
+        c.drawString(tx, ty-5*mm, craftsman_name)
+        c.drawString(tx, ty-7.5*mm, f"{carpet.price} p")
+        c.save()
+        buffer.seek(0)
+        return send_file(buffer, mimetype='application/pdf', as_attachment=True, download_name=f'{carpet.carpet_id}_sticker.pdf')
+    except Exception as e:
+        return f"Ошибка: {e}", 500
+
 @app.route('/mass_print_qr')
 def mass_print_qr():
     t = request.args.get('carpet_type_id','')
     c = request.args.get('craftsman_id','')
     s = request.args.get('status','')
     q = Carpet.query
-    if t: q = q.filter(Carpet.carpet_type_id == t)
-    if c: q = q.filter(Carpet.craftsman_id == c)
-    if s: q = q.filter(Carpet.status == s)
+    if t:
+        q = q.filter(Carpet.carpet_type_id == t)
+    if c:
+        q = q.filter(Carpet.craftsman_id == c)
+    if s:
+        q = q.filter(Carpet.status == s)
     carpets = q.all()
     return render_template('mass_print.html', carpets=carpets,
                           carpet_types=CarpetType.query.all(),
@@ -879,67 +1259,69 @@ def generate_qr_pdf():
     if not carpets:
         flash('Нет ковров для печати', 'error')
         return redirect(url_for('mass_print_qr'))
-    
     try:
         from reportlab.lib.pagesizes import A4
         from reportlab.pdfgen import canvas
         from reportlab.lib.utils import ImageReader
         from PIL import Image
-        
         buffer = io.BytesIO()
         w, h = A4
-        
-        for carpet in carpets:
+        for i, carpet in enumerate(carpets):
             if not carpet.qr_code_path or not os.path.exists(carpet.qr_code_path):
                 continue
-            
             pil = Image.open(carpet.qr_code_path).resize((int(w), int(h)), Image.Resampling.LANCZOS)
             tmp = io.BytesIO()
             pil.save(tmp, format='PNG')
             tmp.seek(0)
-            
             c = canvas.Canvas(buffer, pagesize=A4)
             c.drawImage(ImageReader(tmp), 0, 0, w, h)
             c.setFillColorRGB(1,1,1)
             c.rect(0,0,w,55, fill=1, stroke=0)
             c.setFillColorRGB(0,0,0)
             c.setFont("Helvetica-Bold", 14)
+            ct = db.session.get(CarpetType, carpet.carpet_type_id)
+            cr = db.session.get(Craftsman, carpet.craftsman_id)
             c.drawCentredString(w/2, 38, carpet.carpet_id)
-            c.showPage()
-        
-        c.save()
+            c.setFont("Helvetica", 10)
+            c.drawCentredString(w/2, 24, f"{ct.name if ct else '-'} | {cr.name if cr else '-'} | {carpet.price} ₽")
+            c.setFont("Helvetica", 8)
+            c.drawCentredString(w/2, 10, f"{i+1}/{len(carpets)}")
+            c.save()
         buffer.seek(0)
         return send_file(buffer, mimetype='application/pdf', as_attachment=True, download_name=f'qr_print_{len(carpets)}_pages.pdf')
     except Exception as e:
         return f"Ошибка: {e}", 500
 
+# ========== PDF С НАСТРОЙКАМИ ==========
 @app.route('/generate_single_pages_pdf')
 def generate_single_pages_pdf():
     carpet_type_id = request.args.get('carpet_type_id', '')
     craftsman_id = request.args.get('craftsman_id', '')
     status = request.args.get('status', '')
     
-    # В функции generate_single_pages_pdf обновите ограничения:
-    qr_scale = max(0.5, min(1.0, qr_scale))
-    font_id_size = max(14, min(60, font_id_size))      # увеличено с 40 до 60
-    font_type_size = max(10, min(45, font_type_size))  # увеличено с 28 до 45
-    font_price_size = max(12, min(55, font_price_size)) # увеличено с 36 до 55
-    text_height = max(60, min(250, text_height))       # увеличено с 150 до 250
+    qr_scale = float(request.args.get('qr_scale', 0.85))
+    font_id_size = int(request.args.get('font_id_size', 26))
+    font_type_size = float(request.args.get('font_type_size', 18.5))
+    font_price_size = int(request.args.get('font_price_size', 22))
+    text_height = int(request.args.get('text_height', 105))
     show_id = request.args.get('show_id', 'true').lower() == 'true'
     show_type = request.args.get('show_type', 'true').lower() == 'true'
     show_price = request.args.get('show_price', 'true').lower() == 'true'
     show_size = request.args.get('show_size', 'true').lower() == 'true'
     
     qr_scale = max(0.5, min(1.0, qr_scale))
-    font_id_size = max(14, min(40, font_id_size))
-    font_type_size = max(10, min(28, font_type_size))
-    font_price_size = max(12, min(36, font_price_size))
-    text_height = max(60, min(150, text_height))
+    font_id_size = max(14, min(60, font_id_size))
+    font_type_size = max(10, min(45, font_type_size))
+    font_price_size = max(12, min(55, font_price_size))
+    text_height = max(60, min(250, text_height))
     
     query = Carpet.query
-    if carpet_type_id: query = query.filter(Carpet.carpet_type_id == carpet_type_id)
-    if craftsman_id: query = query.filter(Carpet.craftsman_id == craftsman_id)
-    if status: query = query.filter(Carpet.status == status)
+    if carpet_type_id:
+        query = query.filter(Carpet.carpet_type_id == carpet_type_id)
+    if craftsman_id:
+        query = query.filter(Carpet.craftsman_id == craftsman_id)
+    if status:
+        query = query.filter(Carpet.status == status)
     
     carpets = query.all()
     
@@ -970,7 +1352,10 @@ def generate_single_pages_pdf():
             pil_img = Image.open(carpet.qr_code_path)
             img_width, img_height = pil_img.size
             
-            scale = max(new_width / img_width, new_height / img_height)
+            scale_x = new_width / img_width
+            scale_y = new_height / img_height
+            scale = max(scale_x, scale_y)
+            
             qr_new_width = img_width * scale
             qr_new_height = img_height * scale
             qr_x_offset = x_offset + (new_width - qr_new_width) / 2
@@ -993,6 +1378,7 @@ def generate_single_pages_pdf():
             craftsman_name = craftsman.name if craftsman else '-'
             
             c.setFillColorRGB(0, 0, 0)
+            
             y_pos = text_height - 22
             
             if show_id:
@@ -1001,26 +1387,51 @@ def generate_single_pages_pdf():
                 y_pos -= font_id_size + 4
             
             if show_type:
-                font_name = "RussianFont" if FONT_REGISTERED else "Helvetica"
-                c.setFont(font_name, font_type_size)
+                if FONT_REGISTERED:
+                    c.setFont("RussianFont", font_type_size)
+                else:
+                    c.setFont("Helvetica", font_type_size)
                 c.drawCentredString(width / 2, y_pos, f"{type_name} | {craftsman_name}")
                 y_pos -= font_type_size + 4
             
             if show_price:
                 c.setFont("Helvetica-Bold", font_price_size)
-                c.drawCentredString(width / 2, y_pos, f"{carpet.price:,} ₽".replace(',', ' '))
+                price_str = f"{carpet.price:,} ₽".replace(',', ' ')
+                c.drawCentredString(width / 2, y_pos, price_str)
+                y_pos -= font_price_size + 4
+            
+            if show_size:
+                size_material = ""
+                if carpet.size:
+                    size_material += f"Размер: {carpet.size}"
+                if carpet.material:
+                    if size_material:
+                        size_material += f" | Материал: {carpet.material}"
+                    else:
+                        size_material += f"Материал: {carpet.material}"
+                if size_material:
+                    c.setFont("Helvetica", 11)
+                    c.drawCentredString(width / 2, y_pos, size_material)
             
             c.setFont("Helvetica", 7)
             c.setFillColorRGB(0.5, 0.5, 0.5)
             c.drawRightString(width - 20, 8, f"Страница {i+1} из {len(carpets)}")
+            
             c.showPage()
         
         c.save()
         buffer.seek(0)
-        return send_file(buffer, mimetype='application/pdf', as_attachment=True, download_name=f'qr_full_page_{len(carpets)}_pages.pdf')
+        
+        return send_file(
+            buffer, mimetype='application/pdf', as_attachment=True,
+            download_name=f'qr_full_page_{len(carpets)}_pages.pdf'
+        )
     except Exception as e:
+        print(f"Ошибка: {e}")
+        traceback.print_exc()
         return f"Ошибка: {str(e)}", 500
 
+# ========== МАРШРУТЫ МАРКЕТПЛЕЙСОВ ==========
 @app.route('/marketplace_accounts')
 def marketplace_accounts():
     accounts = MarketplaceAccount.query.all()
@@ -1046,14 +1457,14 @@ def marketplace_accounts():
 def add_marketplace_account():
     mp = request.form['marketplace']
     name = request.form['account_name']
+    login = request.form.get('account_login','')
     key = request.form['api_key']
     cid = request.form.get('client_id','')
     active = 'is_active' in request.form
-    
     if MarketplaceAccount.query.filter_by(marketplace=mp, account_name=name).first():
         flash('Аккаунт с таким названием уже существует', 'error')
     else:
-        db.session.add(MarketplaceAccount(marketplace=mp, account_name=name, api_key=key, client_id=cid, is_active=active))
+        db.session.add(MarketplaceAccount(marketplace=mp, account_name=name, account_login=login, api_key=key, client_id=cid, is_active=active))
         db.session.commit()
         flash(f'Аккаунт "{name}" добавлен', 'success')
     return redirect(url_for('marketplace_accounts'))
@@ -1063,6 +1474,7 @@ def edit_marketplace_account(id):
     acc = MarketplaceAccount.query.get_or_404(id)
     if request.method == 'POST':
         acc.account_name = request.form['account_name']
+        acc.account_login = request.form.get('account_login','')
         acc.api_key = request.form['api_key']
         acc.client_id = request.form.get('client_id','')
         acc.is_active = 'is_active' in request.form
@@ -1085,165 +1497,197 @@ def delete_marketplace_account(id):
 
 @app.route('/sync_account/<int:account_id>')
 def sync_account(account_id):
-    sync_account_orders(account_id)
+    new = sync_account_orders(account_id)
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({'success': True, 'new_orders': new})
     return redirect(url_for('marketplace_accounts'))
 
 @app.route('/sync_all_orders')
 def sync_all_orders():
-    for a in MarketplaceAccount.query.filter_by(is_active=True).all():
-        sync_account_orders(a.id)
+    accounts = MarketplaceAccount.query.filter_by(is_active=True).all()
+    total = 0
+    logs = []
+    for a in accounts:
+        n = sync_account_orders(a.id)
+        total += n
+        logs.append({'account_name': a.account_name, 'marketplace': a.marketplace, 'new_orders': n})
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({'success': True, 'new_orders': total, 'logs': logs})
     return redirect(url_for('marketplace_accounts'))
 
 @app.route('/marketplace_orders')
 def marketplace_orders():
     acc = request.args.get('account_id','')
     st = request.args.get('status','')
+    mp = request.args.get('marketplace','')
     q = MarketplaceOrder.query
-    if acc: q = q.filter(MarketplaceOrder.account_id == acc)
-    if st: q = q.filter(MarketplaceOrder.status == st)
+    if acc:
+        q = q.filter(MarketplaceOrder.account_id == acc)
+    if st:
+        q = q.filter(MarketplaceOrder.status == st)
+    if mp:
+        q = q.filter(MarketplaceOrder.marketplace == mp)
     orders = q.order_by(MarketplaceOrder.ordered_at.desc()).all()
     accounts = MarketplaceAccount.query.all()
     carpets = Carpet.query.filter_by(status='created').all()
-    
-    stats = {
-        'new': MarketplaceOrder.query.filter_by(status='new').count(),
-        'processing': MarketplaceOrder.query.filter_by(status='processing').count(),
-        'ready': MarketplaceOrder.query.filter_by(status='ready').count(),
-        'shipped': MarketplaceOrder.query.filter_by(status='shipped').count()
-    }
+    if acc:
+        stats = {
+            'new': MarketplaceOrder.query.filter_by(account_id=acc, status='new').count(),
+            'processing': MarketplaceOrder.query.filter_by(account_id=acc, status='processing').count(),
+            'ready': MarketplaceOrder.query.filter_by(account_id=acc, status='ready').count(),
+            'shipped': MarketplaceOrder.query.filter_by(account_id=acc, status='shipped').count()
+        }
+    else:
+        stats = {
+            'new': MarketplaceOrder.query.filter_by(status='new').count(),
+            'processing': MarketplaceOrder.query.filter_by(status='processing').count(),
+            'ready': MarketplaceOrder.query.filter_by(status='ready').count(),
+            'shipped': MarketplaceOrder.query.filter_by(status='shipped').count()
+        }
     return render_template('marketplace_orders.html', orders=orders, accounts=accounts, carpets=carpets,
-                          stats=stats, selected_account=acc, selected_status=st)
+                          stats=stats, selected_account=acc, selected_status=st, selected_marketplace=mp)
 
 @app.route('/link_order_to_carpet', methods=['POST'])
 def link_order_to_carpet():
-    order = MarketplaceOrder.query.get(request.form['order_id'])
-    carpet = Carpet.query.filter_by(carpet_id=request.form['carpet_id']).first()
+    oid = request.form['order_id']
+    cid = request.form['carpet_id']
+    order = MarketplaceOrder.query.get(oid)
+    carpet = Carpet.query.filter_by(carpet_id=cid).first()
     if order and carpet:
         order.carpet_id = carpet.carpet_id
         order.status = 'processing'
         db.session.commit()
-        flash(f'Ковёр привязан к заказу', 'success')
+        flash(f'Ковёр {cid} привязан к заказу {order.order_id}', 'success')
     return redirect(url_for('marketplace_orders'))
 
 @app.route('/update_order_status', methods=['POST'])
 def update_order_status():
-    order = MarketplaceOrder.query.get(request.form['order_id'])
+    oid = request.form['order_id']
+    status = request.form['status']
+    order = MarketplaceOrder.query.get(oid)
     if order:
-        order.status = request.form['status']
-        if request.form['status'] == 'shipped':
+        order.status = status
+        if status == 'shipped':
             order.shipped_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            if order.carpet_id:
+                carp = Carpet.query.filter_by(carpet_id=order.carpet_id).first()
+                if carp and carp.status == 'scanned':
+                    carp.status = 'sold'
+                    db.session.commit()
         db.session.commit()
-        flash(f'Статус заказа обновлён', 'success')
+        flash(f'Статус заказа {order.order_id} обновлён на "{status}"', 'success')
     return redirect(url_for('marketplace_orders'))
 
 @app.route('/marketplace_stats_api')
 def marketplace_stats_api():
     accounts = MarketplaceAccount.query.filter_by(is_active=True).all()
-    result = {'accounts': []}
+    total = {'new':0,'processing':0,'ready':0,'shipped':0,'total_orders':0,'total_revenue':0}
+    result = {'total': total, 'accounts': []}
     for a in accounts:
-        result['accounts'].append({
-            'id': a.id, 'name': a.account_name, 'marketplace': a.marketplace,
+        stats = {
+            'id': a.id, 'name': a.account_name, 'marketplace': a.marketplace, 'login': a.account_login,
             'new': MarketplaceOrder.query.filter_by(account_id=a.id, status='new').count(),
             'processing': MarketplaceOrder.query.filter_by(account_id=a.id, status='processing').count(),
             'ready': MarketplaceOrder.query.filter_by(account_id=a.id, status='ready').count(),
             'shipped': MarketplaceOrder.query.filter_by(account_id=a.id, status='shipped').count(),
             'total': MarketplaceOrder.query.filter_by(account_id=a.id).count(),
+            'revenue': db.session.query(db.func.sum(MarketplaceOrder.price)).filter(MarketplaceOrder.account_id == a.id).scalar() or 0,
             'last_sync': a.last_sync
-        })
+        }
+        result['accounts'].append(stats)
+        for k in ['new','processing','ready','shipped','total_orders','total_revenue']:
+            if k == 'total_orders':
+                total[k] += stats['total']
+            elif k == 'total_revenue':
+                total[k] += stats['revenue']
+            else:
+                total[k] += stats[k]
     return jsonify(result)
-
-@app.route('/wb_settings')
-def wb_settings():
-    wb_accounts = MarketplaceAccount.query.filter_by(marketplace='wb').all()
-    return render_template('wb_settings.html', accounts=wb_accounts)
-
-@app.route('/add_wb_token', methods=['POST'])
-def add_wb_token():
-    token_name = request.form.get('token_name', 'Wildberries Аккаунт')
-    api_key = request.form.get('api_key', '').strip()
-    is_active = 'is_active' in request.form
-    
-    if not api_key:
-        flash('❌ API-ключ не может быть пустым', 'error')
-        return redirect(url_for('wb_settings'))
-    
-    account = MarketplaceAccount(
-        marketplace='wb',
-        account_name=token_name,
-        account_login=request.form.get('account_login', ''),
-        api_key=api_key,
-        client_id='',
-        is_active=is_active
-    )
-    db.session.add(account)
-    db.session.commit()
-    
-    flash(f'✅ Аккаунт "{token_name}" добавлен', 'success')
-    return redirect(url_for('wb_settings'))
-
-@app.route('/test_wb_token/<int:account_id>')
-def test_wb_token(account_id):
-    account = MarketplaceAccount.query.get_or_404(account_id)
-    
-    try:
-        headers = {"Authorization": account.api_key}
-        url = "https://marketplace-api.wildberries.ru/api/v3/dbs/orders/new"
-        response = requests.get(url, headers=headers, timeout=10)
-        
-        if response.status_code == 200:
-            return jsonify({'success': True, 'message': '✅ Токен работает!'})
-        elif response.status_code == 401:
-            return jsonify({'success': False, 'error': '❌ Неверный токен'})
-        else:
-            return jsonify({'success': False, 'error': f'⚠️ Ошибка: код {response.status_code}'})
-    except Exception as e:
-        return jsonify({'success': False, 'error': f'❌ Ошибка: {str(e)}'})
-
-@app.route('/toggle_wb_account/<int:account_id>')
-def toggle_wb_account(account_id):
-    account = MarketplaceAccount.query.get_or_404(account_id)
-    account.is_active = not account.is_active
-    db.session.commit()
-    flash(f'✅ Аккаунт "{account.account_name}" {"активен" if account.is_active else "отключен"}', 'success')
-    return redirect(url_for('wb_settings'))
-
-@app.route('/delete_wb_account/<int:account_id>')
-def delete_wb_account(account_id):
-    account = MarketplaceAccount.query.get_or_404(account_id)
-    orders_count = MarketplaceOrder.query.filter_by(account_id=account_id).count()
-    if orders_count > 0:
-        flash(f'❌ Нельзя удалить аккаунт с {orders_count} заказами', 'error')
-    else:
-        db.session.delete(account)
-        db.session.commit()
-        flash(f'✅ Аккаунт удален', 'success')
-    return redirect(url_for('wb_settings'))
 
 @app.route('/search')
 def search():
     q = request.args.get('q','')
+    status = request.args.get('status','')
+    cid = request.args.get('craftsman_id','')
+    tid = request.args.get('carpet_type_id','')
+    date_from = request.args.get('scan_date_from','')
+    date_to = request.args.get('scan_date_to','')
     query = Carpet.query
     if q:
-        query = query.filter(Carpet.carpet_id.contains(q))
+        query = query.filter(Carpet.carpet_id.contains(q) | Carpet.craftsman_ref.has(name=q))
+    if status:
+        query = query.filter(Carpet.status == status)
+    if cid:
+        query = query.filter(Carpet.craftsman_id == cid)
+    if tid:
+        query = query.filter(Carpet.carpet_type_id == tid)
+    if date_from:
+        query = query.filter(Carpet.scanned_at >= date_from)
+    if date_to:
+        query = query.filter(Carpet.scanned_at <= date_to)
     carpets = query.all()
-    return render_template('search.html', carpets=carpets, query=q)
+    craftsmen_stats = []
+    for c in Craftsman.query.all():
+        cnt = Carpet.query.filter_by(craftsman_id=c.id).count()
+        scn = Carpet.query.filter_by(craftsman_id=c.id, status='scanned').count()
+        craftsmen_stats.append({'id': c.id, 'name': c.name, 'count': cnt, 'scanned': scn})
+    return render_template('search.html', carpets=carpets, query=q, status=status,
+                          craftsmen_stats=craftsmen_stats, craftsmen=Craftsman.query.all(),
+                          carpet_types=CarpetType.query.all(), selected_craftsman=cid,
+                          selected_type=tid, scan_date_from=date_from, scan_date_to=date_to)
 
 @app.route('/stats')
 def stats():
-    carpets = Carpet.query.all()
-    return render_template('stats.html', carpets=carpets,
-                          total_carpets=len(carpets),
-                          scanned_count=len([c for c in carpets if c.status == 'scanned']),
-                          sold_count=len([c for c in carpets if c.status == 'sold']))
+    date_from = request.args.get('scan_date_from','')
+    date_to = request.args.get('scan_date_to','')
+    status = request.args.get('status','')
+    cid = request.args.get('craftsman_id','')
+    tid = request.args.get('carpet_type_id','')
+    query = Carpet.query
+    if date_from: query = query.filter(Carpet.scanned_at >= date_from)
+    if date_to: query = query.filter(Carpet.scanned_at <= date_to)
+    if status: query = query.filter(Carpet.status == status)
+    if cid: query = query.filter(Carpet.craftsman_id == cid)
+    if tid: query = query.filter(Carpet.carpet_type_id == tid)
+    carpets = query.all()
+    total = len(carpets)
+    scanned = len([c for c in carpets if c.status == 'scanned'])
+    sold = len([c for c in carpets if c.status == 'sold'])
+    created = len([c for c in carpets if c.status == 'created'])
+    scans_stats = []
+    for i in range(7):
+        d = (datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d')
+        cnt = ScanLog.query.filter(ScanLog.scanned_at.like(f'{d}%'), ScanLog.result == 'success').count()
+        scans_stats.append({'date': d, 'count': cnt})
+    craftsmen_stats = []
+    for c in Craftsman.query.all():
+        cc = [x for x in carpets if x.craftsman_id == c.id]
+        if cc:
+            craftsmen_stats.append({'name': c.name, 'count': len(cc), 'scanned': len([x for x in cc if x.status=='scanned'])})
+    return render_template('stats.html', carpets=carpets, total_carpets=total,
+                          scanned_count=scanned, sold_count=sold, created_count=created,
+                          scans_stats=scans_stats, craftsmen_stats=craftsmen_stats,
+                          craftsmen=Craftsman.query.all(), carpet_types=CarpetType.query.all(),
+                          selected_craftsman=cid, selected_type=tid, selected_status=status,
+                          scan_date_from=date_from, scan_date_to=date_to)
 
 @app.route('/check_db')
 def check_db():
-    return jsonify({
-        'status': 'ok',
-        'database_path': DB_PATH,
-        'carpets_count': Carpet.query.count(),
-        'orders_count': MarketplaceOrder.query.count()
-    })
+    try:
+        db.session.execute('SELECT 1')
+        return jsonify({
+            'status': 'ok',
+            'database_path': DB_PATH,
+            'data_folder': DATA_FOLDER,
+            'carpets_count': Carpet.query.count(),
+            'scans_count': ScanLog.query.count(),
+            'orders_count': MarketplaceOrder.query.count(),
+            'accounts_count': MarketplaceAccount.query.count(),
+            'file_exists': os.path.exists(DB_PATH),
+            'file_size': os.path.getsize(DB_PATH) if os.path.exists(DB_PATH) else 0
+        })
+    except Exception as e:
+        return jsonify({'status': 'error', 'error': str(e), 'database_path': DB_PATH}), 500
 
 def open_browser(port):
     time.sleep(2)

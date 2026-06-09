@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Настройки Wildberries API - Ковровый учёт</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+            padding: 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+            color: white;
+            padding: 25px;
+            text-align: center;
+        }
+        .header a {
+            color: white;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 10px;
+        }
+        .content { padding: 25px; }
+        
+        .flash-messages { margin-bottom: 20px; }
+        .flash-success { background: #27ae60; color: white; padding: 12px; border-radius: 8px; margin-bottom: 10px; }
+        .flash-error { background: #e74c3c; color: white; padding: 12px; border-radius: 8px; margin-bottom: 10px; }
+        .flash-info { background: #3498db; color: white; padding: 12px; border-radius: 8px; margin-bottom: 10px; }
+        
+        .add-form {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .form-group small {
+            font-size: 11px;
+            color: #666;
+            display: block;
+            margin-top: 5px;
+        }
+        .btn-primary {
+            background: #9b59b6;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        
+        .account-card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 5px solid #9b59b6;
+        }
+        .account-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        .account-name {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            color: white;
+        }
+        .status-active { background: #27ae60; }
+        .status-inactive { background: #95a5a6; }
+        
+        .token-info {
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 12px;
+            word-break: break-all;
+            margin: 10px 0;
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        .btn-test {
+            background: #3498db;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .btn-sync {
+            background: #27ae60;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .btn-toggle {
+            background: #f39c12;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .btn-delete {
+            background: #e74c3c;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+        .stat-item {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #9b59b6;
+        }
+        
+        .back-btn {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px 20px;
+            background: #95a5a6;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+        }
+        
+        .info-text {
+            background: #e8f4fd;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        .info-text a {
+            color: #3498db;
+        }
+        
+        @media (max-width: 768px) {
+            .account-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+            .btn-group { flex-direction: column; }
+            .btn-group button { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>🔑 Настройки Wildberries API</h1>
+        <p>Управление токенами для доступа к аналитике и заказам</p>
+        <a href="/">← На главную</a>
+    </div>
+    
+    <div class="content">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash-{{ category if category in ['success', 'error', 'info'] else 'info' }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+        
+        <div class="info-text">
+            💡 <strong>Как получить API-токен Wildberries:</strong><br>
+            1. Перейдите в личный кабинет Wildberries → Настройки → Доступ к API<br>
+            2. Создайте новый ключ с правами на <strong>статистику</strong> и <strong>заказы</strong><br>
+            3. Скопируйте полученный токен и вставьте в форму ниже<br>
+            <a href="https://seller.wildberries.ru/supplier-settings/access-to-api" target="_blank">🔗 Перейти к настройкам API</a>
+        </div>
+        
+        <!-- Форма добавления токена -->
+        <div class="add-form">
+            <h3 style="margin-bottom: 15px;">➕ Добавить новый токен</h3>
+            <form method="POST" action="/add_wb_token">
+                <div class="form-group">
+                    <label>Название аккаунта</label>
+                    <input type="text" name="token_name" placeholder="Например: Основной магазин" required>
+                </div>
+                <div class="form-group">
+                    <label>Логин магазина (опционально)</label>
+                    <input type="text" name="account_login" placeholder="Название магазина">
+                </div>
+                <div class="form-group">
+                    <label>API-токен *</label>
+                    <input type="text" name="api_key" placeholder="eyJhbGciOiJFUzI1NiIsImtpZCI6..." required>
+                    <small>Вставьте скопированный токен сюда</small>
+                </div>
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" name="is_active" checked> Активен
+                    </label>
+                </div>
+                <button type="submit" class="btn-primary">💾 Добавить токен</button>
+            </form>
+        </div>
+        
+        <!-- Список аккаунтов -->
+        <h3 style="margin-bottom: 15px;">📋 Добавленные аккаунты</h3>
+        
+        {% if accounts %}
+            {% for account in accounts %}
+            <div class="account-card">
+                <div class="account-header">
+                    <div>
+                        <span class="account-name">{{ account.account_name }}</span>
+                        <span class="status-badge {% if account.is_active %}status-active{% else %}status-inactive{% endif %}">
+                            {% if account.is_active %}✅ Активен{% else %}⛔ Отключен{% endif %}
+                        </span>
+                    </div>
+                    <div style="font-size: 12px; color: #888;">
+                        ID: {{ account.id }} | Создан: {{ account.created_at.strftime('%Y-%m-%d') if account.created_at else '—' }}
+                    </div>
+                </div>
+                
+                <div class="token-info">
+                    🔑 API-ключ: <span id="token-{{ account.id }}" style="cursor: pointer;" onclick="toggleToken({{ account.id }})">
+                        {{ account.api_key[:20] }}...{{ account.api_key[-10:] if account.api_key|length > 30 else account.api_key }}
+                    </span>
+                    <span style="font-size: 11px; color: #888;">(нажмите чтобы показать/скрыть)</span>
+                </div>
+                
+                <!-- Статистика аккаунта -->
+                <div class="stats-grid" id="stats-{{ account.id }}">
+                    <div class="stat-item">
+                        <div class="stat-number">---</div>
+                        <div>👁️ Просмотров</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">---</div>
+                        <div>💰 Продаж</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">---</div>
+                        <div>📦 Заказов</div>
+                    </div>
+                </div>
+                
+                <div class="btn-group">
+                    <button class="btn-test" onclick="testToken({{ account.id }})">🔍 Проверить токен</button>
+                    <button class="btn-sync" onclick="syncAnalytics({{ account.id }})">📊 Синхронизировать аналитику</button>
+                    <button class="btn-toggle" onclick="toggleAccount({{ account.id }})">
+                        {% if account.is_active %}🔴 Отключить{% else %}🟢 Включить{% endif %}
+                    </button>
+                    <button class="btn-delete" onclick="deleteAccount({{ account.id }})">🗑️ Удалить</button>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p style="text-align: center; color: #999; padding: 40px;">
+                Нет добавленных аккаунтов. Добавьте токен выше, чтобы начать.
+            </p>
+        {% endif %}
+        
+        <!-- Кнопки действий -->
+        <div style="display: flex; gap: 15px; margin-top: 20px; flex-wrap: wrap;">
+            <button onclick="syncAllAnalytics()" class="btn-primary" style="background: #27ae60;">
+                🔄 Синхронизировать все аккаунты
+            </button>
+            <button onclick="window.location.href='/wb_analytics'" class="btn-primary" style="background: #9b59b6;">
+                📊 Перейти к аналитике
+            </button>
+        </div>
+        
+        <a href="/" class="back-btn">← На главную</a>
+    </div>
+</div>
+
+<script>
+    // Функция для показа/скрытия токена
+    function toggleToken(accountId) {
+        const span = document.getElementById(`token-${accountId}`);
+        const fullToken = {{ accounts|tojson }}.find(a => a.id === accountId)?.api_key || '';
+        
+        if (span.classList.contains('showing')) {
+            span.innerHTML = fullToken.substring(0, 20) + '...' + fullToken.substring(fullToken.length - 10);
+            span.classList.remove('showing');
+        } else {
+            span.innerHTML = fullToken;
+            span.classList.add('showing');
+            setTimeout(() => {
+                if (span.classList.contains('showing')) {
+                    span.innerHTML = fullToken.substring(0, 20) + '...' + fullToken.substring(fullToken.length - 10);
+                    span.classList.remove('showing');
+                }
+            }, 5000);
+        }
+    }
+    
+    // Загрузка статистики для аккаунта
+    async function loadStats(accountId) {
+        try {
+            const response = await fetch(`/get_wb_stats_api?account_id=${accountId}`);
+            const data = await response.json();
+            
+            if (data.success) {
+                const statsDiv = document.getElementById(`stats-${accountId}`);
+                if (statsDiv) {
+                    statsDiv.innerHTML = `
+                        <div class="stat-item">
+                            <div class="stat-number">${data.total_views.toLocaleString()}</div>
+                            <div>👁️ Просмотров</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">${data.total_sales.toLocaleString()}</div>
+                            <div>💰 Продаж</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">${data.orders_count.toLocaleString()}</div>
+                            <div>📦 Заказов</div>
+                        </div>
+                    `;
+                }
+            }
+        } catch(e) {
+            console.error('Ошибка загрузки статистики:', e);
+        }
+    }
+    
+    // Тестирование токена
+    async function testToken(accountId) {
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = '⏳ Проверка...';
+        btn.disabled = true;
+        
+        try {
+            const response = await fetch(`/test_wb_token/${accountId}`);
+            const result = await response.json();
+            
+            if (result.success) {
+                alert(result.message);
+            } else {
+                alert(result.error || 'Ошибка проверки токена');
+            }
+        } catch(e) {
+            alert('Ошибка соединения');
+        } finally {
+            btn.textContent = originalText;
+            btn.disabled = false;
+        }
+    }
+    
+    // Синхронизация аналитики
+    async function syncAnalytics(accountId) {
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = '⏳ Синхронизация...';
+        btn.disabled = true;
+        
+        try {
+            window.location.href = `/sync_wb_analytics_from_settings?account_id=${accountId}`;
+        } catch(e) {
+            alert('Ошибка синхронизации');
+            btn.textContent = originalText;
+            btn.disabled = false;
+        }
+    }
+    
+    // Синхронизация всех аккаунтов
+    async function syncAllAnalytics() {
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = '⏳ Синхронизация всех...';
+        btn.disabled = true;
+        
+        try {
+            window.location.href = `/sync_all_wb_analytics`;
+        } catch(e) {
+            alert('Ошибка синхронизации');
+            btn.textContent = originalText;
+            btn.disabled = false;
+        }
+    }
+    
+    // Включение/выключение аккаунта
+    async function toggleAccount(accountId) {
+        if (confirm('Изменить статус аккаунта?')) {
+            window.location.href = `/toggle_wb_account/${accountId}`;
+        }
+    }
+    
+    // Удаление аккаунта
+    async function deleteAccount(accountId) {
+        if (confirm('Удалить аккаунт? Все связанные заказы будут удалены!')) {
+            window.location.href = `/delete_wb_account/${accountId}`;
+        }
+    }
+    
+    // Загружаем статистику для всех аккаунтов
+    {% for account in accounts %}
+    loadStats({{ account.id }});
+    {% endfor %}
+    
+    // Автообновление статистики каждые 30 секунд
+    setInterval(() => {
+        {% for account in accounts %}
+        loadStats({{ account.id }});
+        {% endfor %}
+    }, 30000);
+</script>
+</body>
+</html>

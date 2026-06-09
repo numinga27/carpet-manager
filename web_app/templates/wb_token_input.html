@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Настройка Wildberries API - Ковровый учёт</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            max-width: 550px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .header {
+            background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 { font-size: 24px; margin-bottom: 8px; }
+        .header p { font-size: 14px; opacity: 0.9; }
+        .content { padding: 30px; }
+        
+        .info-box {
+            background: #e8f4fd;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            border-left: 4px solid #3498db;
+            font-size: 14px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            font-size: 14px;
+            font-family: monospace;
+        }
+        .form-group input:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #9b59b6;
+            box-shadow: 0 0 0 2px rgba(155, 89, 182, 0.2);
+        }
+        .form-group small {
+            display: block;
+            margin-top: 5px;
+            font-size: 11px;
+            color: #666;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn:hover {
+            background: #219a52;
+            transform: translateY(-2px);
+        }
+        
+        .test-btn {
+            background: #3498db;
+            margin-top: 10px;
+        }
+        .test-btn:hover {
+            background: #2980b9;
+        }
+        
+        .result-box {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            display: none;
+        }
+        .result-success {
+            background: #27ae60;
+            color: white;
+            display: block;
+        }
+        .result-error {
+            background: #e74c3c;
+            color: white;
+            display: block;
+        }
+        .result-info {
+            background: #f39c12;
+            color: white;
+            display: block;
+        }
+        
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 20px;
+            color: #666;
+            text-decoration: none;
+        }
+        .back-link:hover {
+            color: #9b59b6;
+        }
+        
+        .how-to {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 25px;
+        }
+        .how-to h4 {
+            margin-bottom: 10px;
+            color: #9b59b6;
+        }
+        .how-to ol {
+            margin-left: 20px;
+            font-size: 13px;
+            color: #555;
+        }
+        .how-to li {
+            margin: 8px 0;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>🔑 Настройка Wildberries API</h1>
+        <p>Введите токен для доступа к аналитике и заказам</p>
+    </div>
+    
+    <div class="content">
+        <div class="info-box">
+            💡 <strong>Для чего нужен токен?</strong><br>
+            Токен позволяет автоматически получать заказы и аналитику с Wildberries.
+        </div>
+        
+        <form id="tokenForm">
+            <div class="form-group">
+                <label>📝 Название аккаунта</label>
+                <input type="text" id="accountName" placeholder="Например: Основной магазин" value="Wildberries Основной">
+            </div>
+            
+            <div class="form-group">
+                <label>🔐 API-токен *</label>
+                <textarea id="apiToken" rows="3" placeholder="Вставьте сюда ваш токен Wildberries..."></textarea>
+                <small>Токен начинается с "eyJhbGciOiJFUzI1NiIsImtpZCI6..."</small>
+            </div>
+            
+            <button type="button" class="btn" onclick="saveToken()">💾 Сохранить и продолжить</button>
+            <button type="button" class="btn test-btn" onclick="testToken()">🔍 Проверить токен</button>
+        </form>
+        
+        <div id="result" class="result-box"></div>
+        
+        <div class="how-to">
+            <h4>📖 Как получить токен Wildberries:</h4>
+            <ol>
+                <li>Перейдите в личный кабинет Wildberries</li>
+                <li>Нажмите <strong>Настройки → Доступ к API</strong></li>
+                <li>Нажмите <strong>"Создать новый ключ"</strong></li>
+                <li>Выберите разрешения: 
+                    <strong>✅ Статистика</strong> и <strong>✅ Заказы</strong>
+                </li>
+                <li>Скопируйте полученный токен</li>
+                <li>Вставьте его в поле выше и нажмите "Сохранить"</li>
+            </ol>
+            <p style="margin-top: 15px; font-size: 12px; color: #e74c3c;">
+                ⚠️ Важно: Токен должен иметь права на <strong>Статистику</strong> для работы аналитики!
+            </p>
+        </div>
+        
+        <a href="/" class="back-link">← Пропустить и вернуться на главную</a>
+    </div>
+</div>
+
+<script>
+    async function testToken() {
+        const token = document.getElementById('apiToken').value.trim();
+        const resultDiv = document.getElementById('result');
+        
+        if (!token) {
+            resultDiv.className = 'result-box result-error';
+            resultDiv.innerHTML = '❌ Введите токен для проверки';
+            return;
+        }
+        
+        resultDiv.className = 'result-box result-info';
+        resultDiv.innerHTML = '⏳ Проверка токена...';
+        
+        try {
+            const response = await fetch('/test_token_api', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ api_key: token })
+            });
+            const data = await response.json();
+            
+            if (data.success) {
+                resultDiv.className = 'result-box result-success';
+                resultDiv.innerHTML = '✅ ' + data.message;
+            } else {
+                resultDiv.className = 'result-box result-error';
+                resultDiv.innerHTML = '❌ ' + data.error;
+            }
+        } catch(e) {
+            resultDiv.className = 'result-box result-error';
+            resultDiv.innerHTML = '❌ Ошибка соединения';
+        }
+    }
+    
+    async function saveToken() {
+        const token = document.getElementById('apiToken').value.trim();
+        const accountName = document.getElementById('accountName').value.trim();
+        const resultDiv = document.getElementById('result');
+        
+        if (!token) {
+            resultDiv.className = 'result-box result-error';
+            resultDiv.innerHTML = '❌ Введите API-токен';
+            return;
+        }
+        
+        resultDiv.className = 'result-box result-info';
+        resultDiv.innerHTML = '⏳ Сохранение токена...';
+        
+        try {
+            const response = await fetch('/save_wb_token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    api_key: token,
+                    account_name: accountName 
+                })
+            });
+            const data = await response.json();
+            
+            if (data.success) {
+                resultDiv.className = 'result-box result-success';
+                resultDiv.innerHTML = '✅ ' + data.message;
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 1500);
+            } else {
+                resultDiv.className = 'result-box result-error';
+                resultDiv.innerHTML = '❌ ' + data.error;
+            }
+        } catch(e) {
+            resultDiv.className = 'result-box result-error';
+            resultDiv.innerHTML = '❌ Ошибка сохранения';
+        }
+    }
+</script>
+</body>
+</html>

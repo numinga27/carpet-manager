@@ -68,6 +68,12 @@
         .nav .analytics-btn:hover {
             background: #d35400;
         }
+        .nav .token-btn {
+            background: #e74c3c;
+        }
+        .nav .token-btn:hover {
+            background: #c0392b;
+        }
         
         .content { padding: 25px; }
         
@@ -109,6 +115,9 @@
         }
         .marketplace-card.accounts {
             background: linear-gradient(135deg, #1abc9c 0%, #16a085 100%);
+        }
+        .marketplace-card.token {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
         }
         
         /* Блок аккаунтов */
@@ -189,6 +198,7 @@
         .flash-success { background: #27ae60; color: white; padding: 12px 15px; border-radius: 8px; margin-bottom: 10px; }
         .flash-error { background: #e74c3c; color: white; padding: 12px 15px; border-radius: 8px; margin-bottom: 10px; }
         .flash-info { background: #3498db; color: white; padding: 12px 15px; border-radius: 8px; margin-bottom: 10px; }
+        .flash-warning { background: #f39c12; color: white; padding: 12px 15px; border-radius: 8px; margin-bottom: 10px; }
         
         .scan-panel {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -302,6 +312,9 @@
     <div class="header">
         <h1>🧵 Ковровый учёт</h1>
         <p>Система управления производством ковров для автомобилей</p>
+        <div style="margin-top: 10px;">
+            <a href="/wb_token_input" style="color: white; text-decoration: none; background: rgba(255,255,255,0.2); padding: 5px 15px; border-radius: 20px; font-size: 12px;">🔑 Добавить токен WB</a>
+        </div>
     </div>
 
     <div class="nav">
@@ -316,6 +329,7 @@
         <button onclick="window.location.href='/marketplace_orders'" class="marketplace-btn">🛒 Заказы</button>
         <button onclick="window.location.href='/marketplace_accounts'" class="accounts-btn">🏪 Аккаунты</button>
         <button onclick="window.location.href='/wb_analytics'" class="analytics-btn">📊 WB Аналитика</button>
+        <button onclick="window.location.href='/wb_token_input'" class="token-btn">🔑 Ввести токен WB</button>
         <button onclick="toggleScanPanel()" id="scanToggleBtn">✖️ Закрыть сканер</button>
     </div>
 
@@ -324,7 +338,7 @@
             {% if messages %}
                 <div class="flash-messages">
                     {% for category, message in messages %}
-                        <div class="flash-{{ category if category in ['success', 'error', 'info'] else 'info' }}">
+                        <div class="flash-{{ category if category in ['success', 'error', 'info', 'warning'] else 'info' }}">
                             {{ message }}
                         </div>
                     {% endfor %}
@@ -353,6 +367,11 @@
                 <h3 id="accountsCount">0</h3>
                 <p>🏪 Аккаунтов</p>
                 <small>Управление</small>
+            </div>
+            <div class="marketplace-card token" onclick="window.location.href='/wb_token_input'">
+                <h3 id="tokenStatus">🔑</h3>
+                <p>Добавить токен</p>
+                <small>Wildberries API</small>
             </div>
         </div>
 
@@ -412,7 +431,7 @@
                             {% else %}
                                 <span style="color: #999; font-size:12px;">— не сканирован —</span>
                             {% endif %}
-                        </td>
+                        </strong>
                         <td class="status-cell">
                             {% if carpet.status == 'created' %}
                                 <span class="status-badge status-created">📦 Создан</span>
@@ -421,13 +440,13 @@
                             {% else %}
                                 <span class="status-badge status-sold">💰 Продан</span>
                             {% endif %}
-                        </td>
+                        </strong>
                         <td class="action-buttons">
                             <a href="/edit_carpet/{{ carpet.id }}"><button class="btn btn-edit">✏️ Ред.</button></a>
                             <button class="btn btn-print" onclick="printQR('{{ carpet.carpet_id }}')">🖨️ PNG</button>
                             <button class="btn btn-pdf" onclick="printSinglePDF('{{ carpet.carpet_id }}')">📄 PDF</button>
                             <button class="btn btn-delete" onclick="deleteCarpet({{ carpet.id }})">🗑️ Удалить</button>
-                        </td>
+                        </strong>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -451,15 +470,15 @@
                 <tbody>
                     {% for craftsman in craftsmen %}
                     <tr class="clickable-row" onclick="window.location.href='/craftsman/{{ craftsman.id }}'">
-                        <td style="text-align: center;">{{ craftsman.id }}</td>
-                        <td><strong>{{ craftsman.name }}</strong></td>
-                        <td>{{ craftsman.phone or '—' }}</td>
-                        <td style="text-align: center;">{{ craftsman.carpets|length }}</td>
+                        <td style="text-align: center;">{{ craftsman.id }}</strong>
+                        <td><strong>{{ craftsman.name }}</strong></strong>
+                        <td>{{ craftsman.phone or '—' }}</strong>
+                        <td style="text-align: center;">{{ craftsman.carpets|length }}</strong>
                         <td style="text-align: center;">
                             <span class="badge-green">
                                 {{ craftsman.carpets|selectattr('status', 'equalto', 'scanned')|list|length }}
                             </span>
-                        </td>
+                        </strong>
                         <td style="text-align: center;">
                             <a href="/edit_craftsman/{{ craftsman.id }}" onclick="event.stopPropagation()">
                                 <button class="btn-edit" style="margin-right: 5px;">✏️ Ред.</button>
@@ -467,7 +486,7 @@
                             <button class="btn-delete" onclick="event.stopPropagation(); deleteCraftsman({{ craftsman.id }})">
                                 🗑️ Удалить
                             </button>
-                        </td>
+                        </strong>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -651,6 +670,7 @@
             document.getElementById('totalProcessing').textContent = data.total.processing;
             document.getElementById('totalReady').textContent = data.total.ready;
             document.getElementById('accountsCount').textContent = data.accounts.length;
+            document.getElementById('tokenStatus').innerHTML = data.accounts.filter(a => a.marketplace === 'wb').length > 0 ? '✅' : '🔑';
             
             // Обновляем статистику по каждому аккаунту
             const accountsContainer = document.getElementById('accountsStats');
@@ -692,7 +712,7 @@
             } else {
                 accountsContainer.innerHTML = `
                     <div style="text-align: center; padding: 20px; color: #999; grid-column: 1/-1;">
-                        Нет добавленных аккаунтов. Нажмите "Аккаунты" чтобы добавить.
+                        Нет добавленных аккаунтов. Нажмите "Аккаунты" или "Ввести токен WB" чтобы добавить.
                     </div>
                 `;
             }
@@ -730,10 +750,7 @@
             input.focus();
         }
         
-        // Загружаем статистику
         loadAccountsStats();
-        
-        // Автообновление каждые 30 секунд
         setInterval(loadAccountsStats, 30000);
     });
     
