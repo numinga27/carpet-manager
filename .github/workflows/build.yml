@@ -21,7 +21,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install pyinstaller
         cd web_app
-        pip install flask flask-sqlalchemy qrcode pillow reportlab requests urllib3 certifi chardet idna
+        pip install flask flask-sqlalchemy qrcode pillow reportlab requests
 
     - name: Build EXE
       run: |
@@ -34,23 +34,22 @@ jobs:
           --hidden-import=reportlab.lib.units `
           --hidden-import=reportlab.lib.utils `
           --hidden-import=requests `
-          --hidden-import=urllib3 `
-          --hidden-import=chardet `
-          --hidden-import=idna `
-          --hidden-import=certifi `
-          --collect-all=requests `
-          --collect-all=urllib3 `
           app.py
 
     - name: Prepare release package
       run: |
         mkdir release
         copy web_app\dist\CarpetManager.exe release\
+        :: Копируем ВСЮ папку templates со всеми файлами
         xcopy web_app\templates release\templates\ /E /I /Y
+        :: Копируем также папку Data если есть
+        if exist web_app\Data xcopy web_app\Data release\Data\ /E /I /Y
 
     - name: Create ZIP
       run: |
-        powershell Compress-Archive -Path "release\*" -DestinationPath "CarpetManager.zip" -Force
+        cd release
+        powershell Compress-Archive -Path "*" -DestinationPath "..\CarpetManager.zip" -Force
+        cd ..
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4

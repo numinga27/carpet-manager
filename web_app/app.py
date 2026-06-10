@@ -38,19 +38,35 @@ logger.info(f"Режим: {'EXE' if getattr(sys, 'frozen', False) else 'скри
 logger.info(f"Путь к исполняемому файлу: {sys.executable}")
 logger.info(f"Лог-файл: {log_file}")
 
-# ========== ОПРЕДЕЛЕНИЕ ПУТЕЙ ==========
-if getattr(sys, 'frozen', False):
-    if hasattr(sys, '_MEIPASS'):
-        base_path = sys._MEIPASS
+# ========== ОПРЕДЕЛЕНИЕ ПУТЕЙ ДЛЯ ШАБЛОНОВ (РАБОТАЕТ В EXE) ==========
+def find_template_folder():
+    possible_paths = []
+    
+    if getattr(sys, 'frozen', False):
+        exe_dir = os.path.dirname(sys.executable)
+        possible_paths.append(os.path.join(exe_dir, 'templates'))
+        
+        if hasattr(sys, '_MEIPASS'):
+            possible_paths.append(os.path.join(sys._MEIPASS, 'templates'))
     else:
-        base_path = os.path.dirname(sys.executable)
-else:
-    base_path = os.path.dirname(__file__)
+        possible_paths.append(os.path.join(os.path.dirname(__file__), 'templates'))
+        possible_paths.append(os.path.join(os.getcwd(), 'templates'))
+    
+    for path in possible_paths:
+        logger.info(f"Проверяем путь: {path} - существует: {os.path.exists(path)}")
+        if os.path.exists(path) and os.path.isdir(path):
+            logger.info(f"✅ Папка шаблонов найдена: {path}")
+            return path
+    
+    fallback = os.path.join(os.path.dirname(sys.executable), 'templates')
+    logger.warning(f"⚠️ Папка шаблонов не найдена! Используем fallback: {fallback}")
+    os.makedirs(fallback, exist_ok=True)
+    return fallback
 
-template_folder = os.path.join(base_path, 'templates')
+template_folder = find_template_folder()
 app = Flask(__name__, template_folder=template_folder)
 
-# ========== ПОДДЕРЖКА РУССКОГО ШРИФТА ==========
+# ========== ПОДДЕРЖКА РУССКОГО ШРИФТА ДЛЯ PDF ==========
 try:
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
@@ -80,7 +96,7 @@ except ImportError:
     print("[FONT] ReportLab не установлен")
     FONT_REGISTERED = False
 
-# ========== ОБРАБОТЧИК ИСКЛЮЧЕНИЙ ==========
+# ========== ОБРАБОТЧИК НЕОТЛОВЛЕННЫХ ИСКЛЮЧЕНИЙ ==========
 def exception_handler(exc_type, exc_value, exc_traceback):
     error_msg = ''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))
     print(f"Unhandled exception: {error_msg}")
@@ -94,7 +110,7 @@ def exception_handler(exc_type, exc_value, exc_traceback):
 
 sys.excepthook = exception_handler
 
-# ========== ОПРЕДЕЛЕНИЕ ПАПОК ==========
+# ========== ОПРЕДЕЛЕНИЕ ПАПОК ДЛЯ ДАННЫХ ==========
 def find_data_folder():
     possible_folders = []
     if sys.platform == 'win32':
@@ -106,7 +122,7 @@ def find_data_folder():
     possible_folders.append(docs_folder)
     temp_folder = os.path.join(os.environ.get('TEMP', os.path.expanduser('~')), 'CarpetManager')
     possible_folders.append(temp_folder)
-    local_folder = os.path.join(base_path, 'Data')
+    local_folder = os.path.join(os.path.dirname(sys.executable), 'Data')
     possible_folders.append(local_folder)
 
     for folder in possible_folders:
@@ -445,8 +461,13 @@ def calculate_trend():
         print(f"[TREND] Ошибка: {e}")
         return {"trend": "unknown", "percent": 0, "last_week": 0, "prev_week": 0}
 
-# ========== ФУНКЦИИ ДЛЯ WB АНАЛИТИКИ ==========
+# ========== ФУНКЦИИ ДЛЯ WB АНАЛИТИКИ (БЕЗ ИСКУССТВЕННЫХ ДАННЫХ) ==========
+
 def get_wb_analytics(api_key, account_id, period_days=30):
+    """
+    Получение аналитики по товарам Wildberries
+    Возвращает только реальные данные от API
+    """
     try:
         end_date = datetime.now()
         start_date = end_date - timedelta(days=period_days)
@@ -480,61 +501,32 @@ def get_wb_analytics(api_key, account_id, period_days=30):
                 products = data.get('data', {}).get('products', [])
             
             logger.info(f"Получено {len(products)} товаров")
-            return products if products else create_demo_analytics()
+            return products if products else []
         else:
             logger.error(f"Ошибка API: {response.status_code}")
             if response.status_code == 401:
                 flash('⚠️ Токен Wildberries не имеет прав на аналитику. Нужен токен с доступом к Статистике.', 'warning')
-            return create_demo_analytics()
+            elif response.status_code == 403:
+                flash('⚠️ Доступ запрещен. Проверьте права токена.', 'warning')
+            elif response.status_code == 429:
+                flash('⚠️ Слишком много запросов. Подождите немного.', 'warning')
+            return []
             
+    except requests.exceptions.Timeout:
+        logger.error("Таймаут при запросе к WB Analytics API")
+        flash('⏰ Таймаут соединения с Wildberries API. Проверьте интернет.', 'warning')
+        return []
+    except requests.exceptions.ConnectionError:
+        logger.error("Ошибка соединения с WB Analytics API")
+        flash('❌ Ошибка соединения с Wildberries API. Проверьте интернет.', 'warning')
+        return []
     except Exception as e:
         logger.exception(f"Ошибка получения аналитики: {e}")
-        return create_demo_analytics()
-
-def create_demo_analytics():
-    demo_products = []
-    carpets = Carpet.query.all()
-    
-    for i, carpet in enumerate(carpets[:15] if carpets else range(5)):
-        if isinstance(carpet, int):
-            nm_id = 1000000 + carpet
-            product_name = f'Тестовый товар {carpet+1}'
-            views = 500 + (carpet * 100)
-        else:
-            try:
-                nm_id = int(carpet.carpet_id.split('-')[1]) if carpet.carpet_id and '-' in carpet.carpet_id else 1000000 + i
-            except:
-                nm_id = 1000000 + i
-            product_name = carpet.carpet_type_ref.name if carpet.carpet_type_ref else f'Ковер {carpet.carpet_id}'
-            views = 500 + (i * 150) + (abs(hash(str(carpet.id))) % 500)
-        
-        cart_adds = int(views * 0.05)
-        orders = int(cart_adds * 0.6)
-        sales = int(orders * 0.85)
-        
-        demo_products.append({
-            'nmId': nm_id,
-            'productName': product_name,
-            'brandName': 'Ковровая мастерская',
-            'selectedPeriod': {
-                'views': views,
-                'carts': cart_adds,
-                'orders': orders,
-                'sales': sales,
-                'cancellations': max(0, orders - sales),
-                'returns': max(0, orders - sales) // 2
-            },
-            'pastPeriod': {
-                'views': int(views * 0.7),
-                'carts': int(cart_adds * 0.6),
-                'orders': int(orders * 0.6),
-                'sales': int(sales * 0.6)
-            }
-        })
-    
-    return demo_products
+        flash(f'❌ Ошибка получения аналитики: {str(e)[:100]}', 'error')
+        return []
 
 def sync_wb_analytics(account_id):
+    """Синхронизация аналитики Wildberries - только реальные данные"""
     acc = db.session.get(MarketplaceAccount, account_id)
     if not acc or not acc.is_active or acc.marketplace != 'wb':
         return 0
@@ -543,6 +535,7 @@ def sync_wb_analytics(account_id):
         products = get_wb_analytics(acc.api_key, account_id, 30)
         
         if not products:
+            flash(f'📊 WB Аналитика: нет данных за последние 30 дней', 'info')
             return 0
         
         updated = 0
@@ -553,11 +546,15 @@ def sync_wb_analytics(account_id):
             if not nm_id:
                 continue
             
-            analytic = WBProductAnalytics.query.filter_by(account_id=account_id, nm_id=nm_id).first()
+            analytic = WBProductAnalytics.query.filter_by(
+                account_id=account_id, 
+                nm_id=nm_id
+            ).first()
             
             if not analytic:
                 analytic = WBProductAnalytics(
-                    account_id=account_id, nm_id=nm_id,
+                    account_id=account_id,
+                    nm_id=nm_id,
                     product_name=prod.get('productName', f'Товар {nm_id}')[:200],
                     brand_name=prod.get('brandName', '')[:100]
                 )
@@ -572,6 +569,7 @@ def sync_wb_analytics(account_id):
             analytic.sales = selected.get('sales', 0)
             analytic.cancellations = selected.get('cancellations', 0)
             analytic.returns = selected.get('returns', 0)
+            
             analytic.past_views = past.get('views', 0)
             analytic.past_cart_adds = past.get('carts', 0)
             analytic.past_orders = past.get('orders', 0)
@@ -581,9 +579,13 @@ def sync_wb_analytics(account_id):
                 analytic.conversion_to_cart = round((analytic.cart_adds / analytic.views) * 100, 2)
                 analytic.conversion_to_order = round((analytic.orders / analytic.views) * 100, 2)
                 analytic.conversion_to_sale = round((analytic.sales / analytic.views) * 100, 2)
+            else:
+                analytic.conversion_to_cart = 0
+                analytic.conversion_to_order = 0
+                analytic.conversion_to_sale = 0
             
-            analytic.period_start = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
-            analytic.period_end = datetime.now().strftime("%Y-%m-%d")
+            analytic.period_start = selected.get('dateFrom', (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d"))
+            analytic.period_end = selected.get('dateTo', datetime.now().strftime("%Y-%m-%d"))
             analytic.updated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             
             carpet = Carpet.query.filter_by(carpet_id=f"CARPET-{nm_id:04d}").first()
@@ -598,18 +600,23 @@ def sync_wb_analytics(account_id):
         cache = WBAnalyticsCache.query.filter_by(account_id=account_id).first()
         if not cache:
             cache = WBAnalyticsCache(account_id=account_id)
+        
         cache.cached_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        cache.period_start = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+        cache.period_end = datetime.now().strftime("%Y-%m-%d")
         db.session.add(cache)
         db.session.commit()
         
         if new > 0 or updated > 0:
             flash(f'📊 WB Аналитика: {new} новых, {updated} обновлено', 'success')
+        else:
+            flash(f'📊 WB Аналитика: данных нет', 'info')
         
         return updated
         
     except Exception as e:
-        logger.exception(f"Ошибка синхронизации: {e}")
-        flash(f'❌ Ошибка: {str(e)[:200]}', 'error')
+        logger.exception(f"Ошибка синхронизации аналитики: {e}")
+        flash(f'❌ Ошибка синхронизации аналитики WB: {str(e)[:200]}', 'error')
         return 0
 
 def sync_account_orders(account_id):
@@ -793,23 +800,15 @@ def test_token_api():
         elif response.status_code == 401:
             return jsonify({
                 'success': False, 
-                'error': '❌ Токен недействителен или не имеет прав!\n\nВозможные причины:\n1. Неправильный API-ключ\n2. Ключ не имеет прав на "Заказы" (Orders)\n3. Ключ истек\n\n👉 Получите новый токен в настройках WB: Настройки → Доступ к API'
+                'error': '❌ Токен недействителен или не имеет прав на заказы!\n\nПолучите новый токен в настройках WB: Настройки → Доступ к API'
             })
         else:
             return jsonify({
                 'success': False, 
-                'error': f'⚠️ API вернул код {response.status_code}\n\nПроверьте правильность токена и наличие прав.'
+                'error': f'⚠️ API вернул код {response.status_code}'
             })
-    except requests.exceptions.ConnectionError:
-        return jsonify({
-            'success': False, 
-            'error': '❌ Ошибка соединения с Wildberries API.\n\nПроверьте интернет-соединение.'
-        })
     except Exception as e:
-        return jsonify({
-            'success': False, 
-            'error': f'❌ Ошибка: {str(e)}'
-        })
+        return jsonify({'success': False, 'error': f'❌ Ошибка: {str(e)}'})
 
 @app.route('/save_wb_token', methods=['POST'])
 def save_wb_token():

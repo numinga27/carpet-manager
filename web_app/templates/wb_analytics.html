@@ -24,7 +24,12 @@
             padding: 25px;
             text-align: center;
         }
-        .header a { color: white; text-decoration: none; }
+        .header a { 
+            color: white; 
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 10px;
+        }
         .content { padding: 25px; }
         
         .stats-grid {
@@ -40,7 +45,7 @@
             border-radius: 15px;
             text-align: center;
         }
-        .stat-card h2 { font-size: 2em; }
+        .stat-card h2 { font-size: 2em; margin-bottom: 10px; }
         .stat-card .trend-up { color: #27ae60; }
         .stat-card .trend-down { color: #e74c3c; }
         
@@ -52,6 +57,47 @@
             border-radius: 8px;
             cursor: pointer;
             margin-bottom: 20px;
+            margin-right: 10px;
+        }
+        .btn-sync-all {
+            background: #27ae60;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+        
+        .info-box {
+            background: #e8f4fd;
+            border-left: 4px solid #3498db;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 10px;
+        }
+        .info-box h4 {
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        .info-box ol {
+            margin-left: 20px;
+            margin-top: 10px;
+        }
+        .info-box li {
+            margin: 8px 0;
+        }
+        
+        .warning-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 10px;
+        }
+        .warning-box a {
+            color: #e67e22;
+            text-decoration: none;
         }
         
         table {
@@ -64,7 +110,7 @@
             text-align: left;
             border-bottom: 1px solid #ddd;
         }
-        th { background: #f8f9fa; }
+        th { background: #f8f9fa; font-weight: 600; }
         
         .conversion-high { color: #27ae60; font-weight: bold; }
         .conversion-medium { color: #f39c12; }
@@ -87,6 +133,37 @@
             border-radius: 8px;
         }
         
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+        .empty-state h3 {
+            font-size: 24px;
+            margin-bottom: 15px;
+            color: #666;
+        }
+        .empty-state p {
+            margin-bottom: 10px;
+        }
+        
+        .account-selector {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .account-selector select {
+            padding: 8px 15px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            font-size: 14px;
+        }
+        
         @media (max-width: 768px) {
             .stats-grid { grid-template-columns: 1fr; }
             table { font-size: 12px; display: block; overflow-x: auto; }
@@ -98,13 +175,51 @@
 <div class="container">
     <div class="header">
         <h1>📊 Wildberries Аналитика</h1>
-        <p>Данные о просмотрах, корзинах, заказах и продажах</p>
+        <p>Реальные данные о просмотрах, корзинах, заказах и продажах</p>
         <a href="/">← На главную</a>
     </div>
     
     <div class="content">
-        <button class="btn-sync" onclick="syncAllAnalytics()">🔄 Синхронизировать аналитику</button>
+        <div class="account-selector">
+            <span>📱 Аккаунт:</span>
+            <select id="accountSelect" onchange="filterByAccount()">
+                <option value="all">Все аккаунты</option>
+                {% for account in accounts %}
+                <option value="{{ account.id }}">{{ account.account_name }}</option>
+                {% endfor %}
+            </select>
+            <button class="btn-sync" onclick="syncAnalytics()">🔄 Синхронизировать аналитику</button>
+            <button class="btn-sync-all" onclick="syncAllAnalytics()">🔄 Синхронизировать все аккаунты</button>
+        </div>
         
+        {% if not accounts %}
+        <div class="warning-box">
+            <h4>⚠️ Нет добавленных аккаунтов Wildberries</h4>
+            <p>Для получения аналитики необходимо добавить аккаунт с API-токеном Wildberries.</p>
+            <ol style="margin-top: 10px; margin-left: 20px;">
+                <li>Перейдите в <a href="/wb_token_input">настройки токена WB</a></li>
+                <li>Вставьте API-токен с правами на <strong>Статистику</strong></li>
+                <li>Нажмите "Сохранить"</li>
+                <li>Вернитесь сюда и нажмите "Синхронизировать аналитику"</li>
+            </ol>
+            <p style="margin-top: 15px;">
+                <a href="/wb_token_input">→ Добавить токен WB</a>
+            </p>
+        </div>
+        {% elif not analytics %}
+        <div class="warning-box">
+            <h4>📊 Нет данных аналитики</h4>
+            <p>За выбранный период нет данных по продажам или аналитика еще не синхронизирована.</p>
+            <ol style="margin-top: 10px; margin-left: 20px;">
+                <li>Нажмите кнопку <strong>"Синхронизировать аналитику"</strong></li>
+                <li>Подождите несколько секунд</li>
+                <li>Если данных нет - возможно, за последние 30 дней не было продаж</li>
+            </ol>
+            <p style="margin-top: 15px;">
+                💡 <strong>Совет:</strong> Убедитесь, что API-токен имеет права на <strong>Статистику (Statistics)</strong>.
+            </p>
+        </div>
+        {% else %}
         <!-- Общая статистика -->
         <div class="stats-grid">
             <div class="stat-card">
@@ -141,7 +256,8 @@
             </div>
         </div>
         
-        <!-- Топ товаров -->
+        <!-- Топ товаров по просмотрам -->
+        {% if top_by_views %}
         <h2>🏆 Топ товаров по просмотрам</h2>
         <div style="overflow-x: auto;">
             <table>
@@ -161,21 +277,24 @@
                     {% for item in top_by_views %}
                     <tr>
                         <td><a href="/wb_product_detail/{{ item.nm_id }}" class="product-link">{{ item.nm_id }}</a></td>
-                        <td>{{ item.product_name[:50] }}</td>
+                        <td>{{ item.product_name[:50] if item.product_name else '-' }}</td>
                         <td>{{ item.views }}</td>
                         <td>{{ item.cart_adds }}</td>
                         <td>{{ item.orders }}</td>
                         <td>{{ item.sales }}</td>
                         <td class="{% if item.conversion_to_sale > 5 %}conversion-high{% elif item.conversion_to_sale > 2 %}conversion-medium{% else %}conversion-low{% endif %}">
                             {{ item.conversion_to_sale }}%
-                        </td>
-                        <td>{% if item.carpet_id %}✅ {{ item.carpet_id }}{% else %}—{% endif %}</td>
+                        </strong>
+                        <td>{% if item.carpet_id %}✅ {{ item.carpet_id }}{% else %}—{% endif %}</strong>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
+        {% endif %}
         
+        <!-- Топ товаров по продажам -->
+        {% if top_by_sales %}
         <h2>🔥 Топ товаров по продажам</h2>
         <div style="overflow-x: auto;">
             <table>
@@ -193,19 +312,22 @@
                     {% for item in top_by_sales %}
                     <tr>
                         <td><a href="/wb_product_detail/{{ item.nm_id }}" class="product-link">{{ item.nm_id }}</a></td>
-                        <td>{{ item.product_name[:50] }}</td>
-                        <td><strong>{{ item.sales }}</strong></td>
-                        <td>{{ item.views }}</td>
+                        <td>{{ item.product_name[:50] if item.product_name else '-' }}</strong>
+                        <td><strong>{{ item.sales }}</strong></strong>
+                        <td>{{ item.views }}</strong>
                         <td class="{% if item.conversion_to_sale > 5 %}conversion-high{% elif item.conversion_to_sale > 2 %}conversion-medium{% else %}conversion-low{% endif %}">
                             {{ item.conversion_to_sale }}%
-                        </td>
-                        <td>{% if item.carpet_id %}✅ {{ item.carpet_id }}{% else %}—{% endif %}</td>
+                        </strong>
+                        <td>{% if item.carpet_id %}✅ {{ item.carpet_id }}{% else %}—{% endif %}</strong>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
+        {% endif %}
         
+        <!-- Топ товаров по конверсии -->
+        {% if top_by_conversion %}
         <h2>📈 Топ товаров по конверсии</h2>
         <div style="overflow-x: auto;">
             <table>
@@ -222,36 +344,80 @@
                     {% for item in top_by_conversion %}
                     <tr>
                         <td><a href="/wb_product_detail/{{ item.nm_id }}" class="product-link">{{ item.nm_id }}</a></td>
-                        <td>{{ item.product_name[:50] }}</td>
-                        <td class="conversion-high">{{ item.conversion_to_sale }}%</td>
-                        <td>{{ item.views }}</td>
-                        <td>{{ item.sales }}</td>
+                        <td>{{ item.product_name[:50] if item.product_name else '-' }}</strong>
+                        <td class="conversion-high">{{ item.conversion_to_sale }}%</strong>
+                        <td>{{ item.views }}</strong>
+                        <td>{{ item.sales }}</strong>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
+        {% endif %}
+        
+        <!-- Информация о последней синхронизации -->
+        <div class="info-box">
+            <h4>ℹ️ О данных</h4>
+            <p>📊 Данные получены из API Wildberries за последние 30 дней.</p>
+            <p>🔄 Для обновления данных нажмите кнопку "Синхронизировать аналитику".</p>
+            <p>🔑 Если данные отсутствуют, проверьте что API-токен имеет права на <strong>Статистику (Statistics)</strong>.</p>
+        </div>
+        {% endif %}
         
         <a href="/" class="back-btn">← На главную</a>
     </div>
 </div>
 
 <script>
-    async function syncAllAnalytics() {
+    function filterByAccount() {
+        const accountId = document.getElementById('accountSelect').value;
+        if (accountId === 'all') {
+            window.location.href = '/wb_analytics';
+        } else {
+            // Фильтрация по аккаунту (если нужно)
+            window.location.href = '/wb_analytics?account_id=' + accountId;
+        }
+    }
+    
+    async function syncAnalytics() {
         const btn = event.target;
         const originalText = btn.textContent;
         btn.textContent = '⏳ Синхронизация...';
         btn.disabled = true;
         
         try {
-            const response = await fetch('/sync_all_wb_analytics');
-            window.location.reload();
+            const accountSelect = document.getElementById('accountSelect');
+            const accountId = accountSelect ? accountSelect.value : 'all';
+            
+            if (accountId === 'all') {
+                window.location.href = '/sync_all_wb_analytics';
+            } else {
+                window.location.href = '/sync_wb_analytics/' + accountId;
+            }
         } catch(e) {
             alert('Ошибка синхронизации');
             btn.textContent = originalText;
             btn.disabled = false;
         }
     }
+    
+    async function syncAllAnalytics() {
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = '⏳ Синхронизация всех...';
+        btn.disabled = true;
+        
+        try {
+            window.location.href = '/sync_all_wb_analytics';
+        } catch(e) {
+            alert('Ошибка синхронизации');
+            btn.textContent = originalText;
+            btn.disabled = false;
+        }
+    }
+    
+    // Автоматическая синхронизация при загрузке страницы (опционально)
+    // setTimeout(() => { syncAllAnalytics(); }, 1000);
 </script>
 </body>
 </html>
