@@ -38,18 +38,20 @@ jobs:
 
     - name: Prepare release package
       run: |
-        mkdir release
-        copy web_app\dist\CarpetManager.exe release\
-        :: Копируем ВСЮ папку templates со всеми файлами
-        xcopy web_app\templates release\templates\ /E /I /Y
-        :: Копируем также папку Data если есть
-        if exist web_app\Data xcopy web_app\Data release\Data\ /E /I /Y
+        New-Item -ItemType Directory -Force -Path release
+        Copy-Item "web_app\dist\CarpetManager.exe" -Destination "release\"
+        # Копируем папку templates
+        if (Test-Path "web_app\templates") {
+            Copy-Item -Path "web_app\templates" -Destination "release\templates" -Recurse -Force
+        }
+        # Копируем папку Data если есть
+        if (Test-Path "web_app\Data") {
+            Copy-Item -Path "web_app\Data" -Destination "release\Data" -Recurse -Force
+        }
 
     - name: Create ZIP
       run: |
-        cd release
-        powershell Compress-Archive -Path "*" -DestinationPath "..\CarpetManager.zip" -Force
-        cd ..
+        Compress-Archive -Path "release\*" -DestinationPath "CarpetManager.zip" -Force
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
