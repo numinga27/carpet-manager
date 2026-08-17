@@ -28,6 +28,16 @@
         }
         .header h1 { font-size: 28px; margin-bottom: 8px; }
         .header p { font-size: 14px; opacity: 0.9; }
+        .header a {
+            color: white;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 10px;
+            background: rgba(255,255,255,0.2);
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+        }
         
         /* Навигация */
         .nav {
@@ -50,42 +60,25 @@
             transition: all 0.2s ease;
         }
         .nav button:hover { background: #5a67d8; transform: translateY(-2px); }
-        .nav .marketplace-btn {
-            background: #27ae60;
-        }
-        .nav .marketplace-btn:hover {
-            background: #219a52;
-        }
-        .nav .accounts-btn {
-            background: #9b59b6;
-        }
-        .nav .accounts-btn:hover {
-            background: #8e44ad;
-        }
-        .nav .analytics-btn {
-            background: #e67e22;
-        }
-        .nav .analytics-btn:hover {
-            background: #d35400;
-        }
-        .nav .token-btn {
-            background: #e74c3c;
-        }
-        .nav .token-btn:hover {
-            background: #c0392b;
-        }
+        .nav .marketplace-btn { background: #27ae60; }
+        .nav .marketplace-btn:hover { background: #219a52; }
+        .nav .accounts-btn { background: #9b59b6; }
+        .nav .accounts-btn:hover { background: #8e44ad; }
+        .nav .analytics-btn { background: #e67e22; }
+        .nav .analytics-btn:hover { background: #d35400; }
+        .nav .token-btn { background: #e74c3c; }
+        .nav .token-btn:hover { background: #c0392b; }
         
         .content { padding: 25px; }
         
         /* Статистика маркетплейсов */
         .marketplace-stats {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             gap: 15px;
             margin-bottom: 20px;
         }
         .marketplace-card {
-            background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
             color: white;
             padding: 20px;
             border-radius: 15px;
@@ -93,32 +86,15 @@
             cursor: pointer;
             transition: transform 0.2s;
         }
-        .marketplace-card:hover {
-            transform: translateY(-3px);
-        }
-        .marketplace-card h3 {
-            font-size: 32px;
-            margin-bottom: 8px;
-        }
-        .marketplace-card p {
-            font-size: 13px;
-            opacity: 0.9;
-        }
-        .marketplace-card.wb {
-            background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
-        }
-        .marketplace-card.ozon {
-            background: linear-gradient(135deg, #e67e22 0%, #d35400 100%);
-        }
-        .marketplace-card.ready {
-            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
-        }
-        .marketplace-card.accounts {
-            background: linear-gradient(135deg, #1abc9c 0%, #16a085 100%);
-        }
-        .marketplace-card.token {
-            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
-        }
+        .marketplace-card:hover { transform: translateY(-3px); }
+        .marketplace-card h3 { font-size: 32px; margin-bottom: 8px; }
+        .marketplace-card p { font-size: 13px; opacity: 0.9; }
+        .marketplace-card.wb { background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%); }
+        .marketplace-card.ozon { background: linear-gradient(135deg, #e67e22 0%, #d35400 100%); }
+        .marketplace-card.ready { background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); }
+        .marketplace-card.accounts { background: linear-gradient(135deg, #1abc9c 0%, #16a085 100%); }
+        .marketplace-card.token { background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); }
+        .marketplace-card.orders { background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%); }
         
         /* Блок аккаунтов */
         .accounts-stats {
@@ -149,10 +125,7 @@
             margin-bottom: 12px;
             flex-wrap: wrap;
         }
-        .account-name {
-            font-size: 16px;
-            font-weight: bold;
-        }
+        .account-name { font-size: 16px; font-weight: bold; }
         .account-badge {
             padding: 2px 8px;
             border-radius: 12px;
@@ -175,14 +148,8 @@
             padding: 8px 5px;
             border-radius: 10px;
         }
-        .account-stat-number {
-            font-size: 18px;
-            font-weight: bold;
-        }
-        .account-stat-label {
-            font-size: 10px;
-            color: #666;
-        }
+        .account-stat-number { font-size: 18px; font-weight: bold; }
+        .account-stat-label { font-size: 10px; color: #666; }
         .account-footer {
             display: flex;
             justify-content: space-between;
@@ -193,13 +160,14 @@
             border-top: 1px solid #e0e0e0;
         }
         
-        /* Остальные стили */
+        /* Flash сообщения */
         .flash-messages { margin-bottom: 20px; }
         .flash-success { background: #27ae60; color: white; padding: 12px 15px; border-radius: 8px; margin-bottom: 10px; }
         .flash-error { background: #e74c3c; color: white; padding: 12px 15px; border-radius: 8px; margin-bottom: 10px; }
         .flash-info { background: #3498db; color: white; padding: 12px 15px; border-radius: 8px; margin-bottom: 10px; }
         .flash-warning { background: #f39c12; color: white; padding: 12px 15px; border-radius: 8px; margin-bottom: 10px; }
         
+        /* Панель сканирования */
         .scan-panel {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             padding: 20px;
@@ -219,10 +187,45 @@
             border-radius: 10px;
             outline: none;
             font-family: monospace;
+            min-width: 200px;
         }
         .scan-input input:focus { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5); }
         .scan-result { margin-top: 15px; padding: 12px; border-radius: 10px; background: rgba(255, 255, 255, 0.1); font-size: 14px; }
         
+        /* Поиск и фильтры */
+        .filter-bar {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            align-items: center;
+        }
+        .filter-bar input, .filter-bar select {
+            padding: 8px 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            flex: 1;
+            min-width: 150px;
+        }
+        .filter-bar button {
+            padding: 8px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        .filter-bar button:hover { background: #5a67d8; }
+        .filter-bar .clear-btn { background: #95a5a6; }
+        .filter-bar .clear-btn:hover { background: #7f8c8d; }
+        
+        /* Таблицы */
         h2 { margin: 25px 0 15px 0; color: #333; font-size: 20px; border-left: 4px solid #667eea; padding-left: 15px; }
         .table-wrapper { overflow-x: auto; border-radius: 12px; border: 1px solid #e9ecef; }
         table { width: 100%; border-collapse: collapse; font-size: 14px; }
@@ -244,6 +247,7 @@
         
         .action-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
         .btn { padding: 5px 10px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.2s; }
+        .btn:hover { opacity: 0.85; }
         .btn-edit { background: #f39c12; color: white; }
         .btn-print { background: #3498db; color: white; }
         .btn-pdf { background: #e74c3c; color: white; }
@@ -251,6 +255,55 @@
         .btn-scan { background: #27ae60; color: white; }
         .qr-preview { max-width: 45px; max-height: 45px; cursor: pointer; border-radius: 8px; border: 1px solid #ddd; }
         
+        /* Пагинация */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        .pagination a, .pagination span {
+            padding: 8px 16px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        .pagination a {
+            background: #667eea;
+            color: white;
+        }
+        .pagination a:hover { background: #5a67d8; transform: translateY(-2px); }
+        .pagination .current {
+            background: #e9ecef;
+            color: #333;
+            font-weight: 600;
+        }
+        .pagination .disabled {
+            background: #e9ecef;
+            color: #999;
+            cursor: default;
+        }
+        .pagination .info {
+            background: transparent;
+            color: #666;
+            font-size: 13px;
+        }
+        
+        .badge-green {
+            background: #27ae60;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 15px;
+            font-size: 12px;
+        }
+        
+        /* Модальные окна */
         .modal {
             display: none;
             position: fixed;
@@ -270,6 +323,8 @@
             max-width: 90%;
             border-radius: 20px;
             animation: slideIn 0.3s ease;
+            max-height: 90vh;
+            overflow-y: auto;
         }
         @keyframes slideIn {
             from { opacity: 0; transform: translateY(-50px); }
@@ -285,16 +340,9 @@
             font-size: 14px;
         }
         .modal-buttons { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
-        .btn-save { background: #27ae60; color: white; }
-        .btn-cancel { background: #95a5a6; color: white; }
+        .btn-save { background: #27ae60; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; }
+        .btn-cancel { background: #95a5a6; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; }
         .range-labels { display: flex; justify-content: space-between; margin-top: 5px; font-size: 10px; color: #888; }
-        .badge-green {
-            background: #27ae60;
-            color: white;
-            padding: 2px 8px;
-            border-radius: 15px;
-            font-size: 12px;
-        }
         
         @media (max-width: 768px) {
             body { padding: 10px; }
@@ -304,6 +352,9 @@
             .action-buttons { flex-direction: column; }
             .accounts-stats { grid-template-columns: 1fr; }
             .account-stats-grid { grid-template-columns: repeat(4, 1fr); }
+            .filter-bar { flex-direction: column; }
+            .filter-bar input, .filter-bar select { width: 100%; }
+            .marketplace-stats { grid-template-columns: repeat(2, 1fr); }
         }
     </style>
 </head>
@@ -312,9 +363,7 @@
     <div class="header">
         <h1>🧵 Ковровый учёт</h1>
         <p>Система управления производством ковров для автомобилей</p>
-        <div style="margin-top: 10px;">
-            <a href="/wb_token_input" style="color: white; text-decoration: none; background: rgba(255,255,255,0.2); padding: 5px 15px; border-radius: 20px; font-size: 12px;">🔑 Добавить токен WB</a>
-        </div>
+        <a href="/wb_token_input">🔑 Добавить токен WB</a>
     </div>
 
     <div class="nav">
@@ -322,7 +371,6 @@
         <button onclick="openModal('group')">📦 Групповое добавление</button>
         <button onclick="openModal('craftsman')">👤 Добавить швею</button>
         <button onclick="window.location.href='/types'">🏷️ Типы ковров</button>
-        <button onclick="window.location.href='/search'">🔍 Расширенный поиск</button>
         <button onclick="window.location.href='/stats'">📊 Статистика</button>
         <button onclick="window.location.href='/mass_print_qr'">🖨️ Массовая печать</button>
         <button onclick="window.location.href='/forecast'">📈 Прогноз продаж</button>
@@ -348,42 +396,37 @@
 
         <!-- БЛОК СТАТИСТИКИ МАРКЕТПЛЕЙСОВ -->
         <div class="marketplace-stats" id="marketplaceStats">
-            <div class="marketplace-card" onclick="window.location.href='/marketplace_orders?status=new'">
+            <div class="marketplace-card orders" onclick="window.location.href='/marketplace_orders?status=new'">
                 <h3 id="totalNew">0</h3>
                 <p>🆕 Новые заказы</p>
-                <small>Всего по всем аккаунтам</small>
             </div>
             <div class="marketplace-card wb" onclick="window.location.href='/marketplace_orders?status=processing'">
                 <h3 id="totalProcessing">0</h3>
                 <p>⚙️ В обработке</p>
-                <small>Ковёр привязан</small>
             </div>
             <div class="marketplace-card ready" onclick="window.location.href='/marketplace_orders?status=ready'">
                 <h3 id="totalReady">0</h3>
-                <p>✅ Готовы к отгрузке</p>
-                <small>Можно отправлять</small>
+                <p>✅ Готовы</p>
             </div>
             <div class="marketplace-card accounts" onclick="window.location.href='/marketplace_accounts'">
                 <h3 id="accountsCount">0</h3>
                 <p>🏪 Аккаунтов</p>
-                <small>Управление</small>
             </div>
             <div class="marketplace-card token" onclick="window.location.href='/wb_token_input'">
                 <h3 id="tokenStatus">🔑</h3>
-                <p>Добавить токен</p>
-                <small>Wildberries API</small>
+                <p>Токен WB</p>
             </div>
         </div>
 
-        <!-- БЛОК АККАУНТОВ (краткая статистика по каждому) -->
+        <!-- БЛОК АККАУНТОВ -->
         <div class="accounts-stats" id="accountsStats">
-            <div style="text-align: center; padding: 20px; color: #999;">Загрузка статистики...</div>
+            <div style="text-align: center; padding: 20px; color: #999; grid-column: 1/-1;">Загрузка статистики...</div>
         </div>
 
         <!-- Панель сканирования -->
         <div id="scanPanel" class="scan-panel">
             <h3>📷 Сканирование QR-кода</h3>
-            <p>Наведите USB-сканер на QR-код — поле автоматически очищается после каждого сканирования:</p>
+            <p>Наведите USB-сканер на QR-код:</p>
             <div class="scan-input">
                 <input type="text" id="qrInput" placeholder="Например: CARPET-0001" autofocus>
                 <button class="btn btn-scan" onclick="scanQR()">🔍 Проверить</button>
@@ -391,8 +434,21 @@
             <div id="scanResult" class="scan-result"></div>
         </div>
 
+        <!-- Поиск и фильтры -->
+        <div class="filter-bar">
+            <input type="text" id="searchInput" placeholder="🔍 Поиск по ID ковра или имени швеи..." value="{{ request.args.get('q', '') }}">
+            <select id="statusFilter">
+                <option value="">Все статусы</option>
+                <option value="created" {% if request.args.get('status') == 'created' %}selected{% endif %}>📦 Создан</option>
+                <option value="scanned" {% if request.args.get('status') == 'scanned' %}selected{% endif %}>✅ Отсканирован</option>
+                <option value="sold" {% if request.args.get('status') == 'sold' %}selected{% endif %}>💰 Продан</option>
+            </select>
+            <button onclick="applyFilters()">🔍 Найти</button>
+            <button onclick="clearFilters()" class="clear-btn">❌ Очистить</button>
+        </div>
+
         <!-- Таблица ковров -->
-        <h2>📋 Список ковров</h2>
+        <h2>📋 Список ковров <span style="font-size: 14px; color: #888; font-weight: normal;">(всего: {{ total_carpets }})</span></h2>
         <div class="table-wrapper">
             <table id="carpetsTable">
                 <thead>
@@ -409,49 +465,75 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for carpet in carpets %}
-                    <tr data-carpet-id="{{ carpet.carpet_id }}">
-                        <td><strong>{{ carpet.carpet_id }}</strong></td>
-                        <td>
-                            {% if carpet.qr_code_path %}
-                            <img src="/get_qr/{{ carpet.carpet_id }}" class="qr-preview" 
-                                 onclick="window.open('/get_qr/{{ carpet.carpet_id }}')" 
-                                 title="Нажмите для просмотра QR-кода">
-                            {% else %}
-                                <span style="color: #999;">Нет QR</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ carpet.carpet_type_ref.name if carpet.carpet_type_ref else '-' }}</td>
-                        <td>{{ carpet.craftsman_ref.name if carpet.craftsman_ref else '-' }}</td>
-                        <td><strong>{{ carpet.price }} ₽</strong></td>
-                        <td>{{ carpet.size or '-' }}</td>
-                        <td class="scan-date-cell">
-                            {% if carpet.scanned_at %}
-                                <span style="font-size:12px;">🕐 {{ carpet.scanned_at }}</span>
-                            {% else %}
-                                <span style="color: #999; font-size:12px;">— не сканирован —</span>
-                            {% endif %}
-                        </strong>
-                        <td class="status-cell">
-                            {% if carpet.status == 'created' %}
-                                <span class="status-badge status-created">📦 Создан</span>
-                            {% elif carpet.status == 'scanned' %}
-                                <span class="status-badge status-scanned">✅ Отсканирован</span>
-                            {% else %}
-                                <span class="status-badge status-sold">💰 Продан</span>
-                            {% endif %}
-                        </strong>
-                        <td class="action-buttons">
-                            <a href="/edit_carpet/{{ carpet.id }}"><button class="btn btn-edit">✏️ Ред.</button></a>
-                            <button class="btn btn-print" onclick="printQR('{{ carpet.carpet_id }}')">🖨️ PNG</button>
-                            <button class="btn btn-pdf" onclick="printSinglePDF('{{ carpet.carpet_id }}')">📄 PDF</button>
-                            <button class="btn btn-delete" onclick="deleteCarpet({{ carpet.id }})">🗑️ Удалить</button>
-                        </strong>
-                    </tr>
-                    {% endfor %}
+                    {% if carpets %}
+                        {% for carpet in carpets %}
+                        <tr data-carpet-id="{{ carpet.carpet_id }}">
+                            <td><strong>{{ carpet.carpet_id }}</strong></td>
+                            <td>
+                                {% if carpet.qr_code_path %}
+                                <img src="/get_qr/{{ carpet.carpet_id }}" class="qr-preview" 
+                                     onclick="window.open('/get_qr/{{ carpet.carpet_id }}')" 
+                                     title="Нажмите для просмотра QR-кода">
+                                {% else %}
+                                    <span style="color: #999;">Нет QR</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ carpet.carpet_type_ref.name if carpet.carpet_type_ref else '-' }}</td>
+                            <td>{{ carpet.craftsman_ref.name if carpet.craftsman_ref else '-' }}</td>
+                            <td><strong>{{ carpet.price }} ₽</strong></td>
+                            <td>{{ carpet.size or '-' }}</td>
+                            <td class="scan-date-cell">
+                                {% if carpet.scanned_at %}
+                                    <span style="font-size:12px;">🕐 {{ carpet.scanned_at }}</span>
+                                {% else %}
+                                    <span style="color: #999; font-size:12px;">— не сканирован —</span>
+                                {% endif %}
+                            </td>
+                            <td class="status-cell">
+                                {% if carpet.status == 'created' %}
+                                    <span class="status-badge status-created">📦 Создан</span>
+                                {% elif carpet.status == 'scanned' %}
+                                    <span class="status-badge status-scanned">✅ Отсканирован</span>
+                                {% else %}
+                                    <span class="status-badge status-sold">💰 Продан</span>
+                                {% endif %}
+                            </td>
+                            <td class="action-buttons">
+                                <a href="/edit_carpet/{{ carpet.id }}"><button class="btn btn-edit">✏️ Ред.</button></a>
+                                <button class="btn btn-print" onclick="printQR('{{ carpet.carpet_id }}')">🖨️ PNG</button>
+                                <button class="btn btn-pdf" onclick="printSinglePDF('{{ carpet.carpet_id }}')">📄 PDF</button>
+                                <button class="btn btn-delete" onclick="deleteCarpet({{ carpet.id }})">🗑️ Удалить</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr><td colspan="9" style="text-align: center; padding: 30px; color: #999;">Нет ковров</td></tr>
+                    {% endif %}
                 </tbody>
             </table>
         </div>
+
+        <!-- Пагинация -->
+        {% if pagination and pagination.pages > 1 %}
+        <div class="pagination">
+            {% if pagination.has_prev %}
+                <a href="{{ url_for('index', page=pagination.prev_num, q=request.args.get('q', ''), status=request.args.get('status', '')) }}">◀ Назад</a>
+            {% else %}
+                <span class="disabled">◀ Назад</span>
+            {% endif %}
+            
+            <span class="info">
+                Страница {{ pagination.page }} из {{ pagination.pages }}
+                (всего {{ total_carpets }} ковров, по {{ pagination.per_page }} на странице)
+            </span>
+            
+            {% if pagination.has_next %}
+                <a href="{{ url_for('index', page=pagination.next_num, q=request.args.get('q', ''), status=request.args.get('status', '')) }}">Вперед ▶</a>
+            {% else %}
+                <span class="disabled">Вперед ▶</span>
+            {% endif %}
+        </div>
+        {% endif %}
 
         <!-- Таблица швей -->
         <h2>👥 Список швей</h2>
@@ -470,15 +552,15 @@
                 <tbody>
                     {% for craftsman in craftsmen %}
                     <tr class="clickable-row" onclick="window.location.href='/craftsman/{{ craftsman.id }}'">
-                        <td style="text-align: center;">{{ craftsman.id }}</strong>
-                        <td><strong>{{ craftsman.name }}</strong></strong>
-                        <td>{{ craftsman.phone or '—' }}</strong>
-                        <td style="text-align: center;">{{ craftsman.carpets|length }}</strong>
+                        <td style="text-align: center;">{{ craftsman.id }}</td>
+                        <td><strong>{{ craftsman.name }}</strong></td>
+                        <td>{{ craftsman.phone or '—' }}</td>
+                        <td style="text-align: center;">{{ craftsman.carpets|length }}</td>
                         <td style="text-align: center;">
                             <span class="badge-green">
                                 {{ craftsman.carpets|selectattr('status', 'equalto', 'scanned')|list|length }}
                             </span>
-                        </strong>
+                        </td>
                         <td style="text-align: center;">
                             <a href="/edit_craftsman/{{ craftsman.id }}" onclick="event.stopPropagation()">
                                 <button class="btn-edit" style="margin-right: 5px;">✏️ Ред.</button>
@@ -486,7 +568,7 @@
                             <button class="btn-delete" onclick="event.stopPropagation(); deleteCraftsman({{ craftsman.id }})">
                                 🗑️ Удалить
                             </button>
-                        </strong>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -579,6 +661,33 @@
         }
     }
     
+    // Поиск и фильтры
+    function applyFilters() {
+        const search = document.getElementById('searchInput').value.trim();
+        const status = document.getElementById('statusFilter').value;
+        let url = '/search?';
+        if (search) url += 'q=' + encodeURIComponent(search) + '&';
+        if (status) url += 'status=' + encodeURIComponent(status);
+        if (url.endsWith('&') || url.endsWith('?')) url = '/';
+        window.location.href = url || '/';
+    }
+    
+    function clearFilters() {
+        document.getElementById('searchInput').value = '';
+        document.getElementById('statusFilter').value = '';
+        window.location.href = '/';
+    }
+    
+    // Enter для поиска
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            searchInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') applyFilters();
+            });
+        }
+    });
+    
     // Сканирование QR
     async function scanQR() {
         const qrInput = document.getElementById('qrInput');
@@ -665,14 +774,12 @@
             const response = await fetch('/marketplace_stats_api');
             const data = await response.json();
             
-            // Обновляем общую статистику
             document.getElementById('totalNew').textContent = data.total.new;
             document.getElementById('totalProcessing').textContent = data.total.processing;
             document.getElementById('totalReady').textContent = data.total.ready;
             document.getElementById('accountsCount').textContent = data.accounts.length;
             document.getElementById('tokenStatus').innerHTML = data.accounts.filter(a => a.marketplace === 'wb').length > 0 ? '✅' : '🔑';
             
-            // Обновляем статистику по каждому аккаунту
             const accountsContainer = document.getElementById('accountsStats');
             if (data.accounts.length > 0) {
                 accountsContainer.innerHTML = data.accounts.map(acc => `
@@ -718,7 +825,6 @@
             }
         } catch(e) {
             console.log('Ошибка загрузки статистики:', e);
-            document.getElementById('accountsStats').innerHTML = '<div style="text-align: center; padding: 20px; color: #999;">Ошибка загрузки статистики</div>';
         }
     }
     

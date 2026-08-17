@@ -6,6 +6,8 @@ import sys
 import qrcode
 import webbrowser
 import threading
+from functools import lru_cache  # <-- ДОБАВИТЬ
+import hashlib  # <-- ДОБАВИТЬ (опционально)ы
 import time
 import io
 import zipfile
@@ -109,6 +111,22 @@ def exception_handler(exc_type, exc_value, exc_traceback):
         pass
 
 sys.excepthook = exception_handler
+
+@lru_cache(maxsize=2)
+def get_cached_craftsmen():
+    """Кешированный список швей"""
+    return Craftsman.query.all()
+
+@lru_cache(maxsize=2)
+def get_cached_carpet_types():
+    """Кешированный список типов ковров"""
+    return CarpetType.query.all()
+
+def invalidate_cache():
+    """Очищает кеш при изменении данных"""
+    get_cached_craftsmen.cache_clear()
+    get_cached_carpet_types.cache_clear()
+    print("[CACHE] Кеш очищен")
 
 # ========== ОПРЕДЕЛЕНИЕ ПАПОК ДЛЯ ДАННЫХ ==========
 def find_data_folder():
@@ -284,6 +302,22 @@ class WBProductAnalytics(db.Model):
 # ========== МИГРАЦИЯ БД ==========
 DB_VERSION = 2
 
+def add_indexes():
+    """Добавляет индексы для ускорения запросов"""
+    try:
+        db.session.execute('CREATE INDEX IF NOT EXISTS idx_carpet_status ON carpet(status)')
+        db.session.execute('CREATE INDEX IF NOT EXISTS idx_carpet_scanned_at ON carpet(scanned_at)')
+        db.session.execute('CREATE INDEX IF NOT EXISTS idx_carpet_carpet_id ON carpet(carpet_id)')
+        db.session.execute('CREATE INDEX IF NOT EXISTS idx_carpet_craftsman_id ON carpet(craftsman_id)')
+        db.session.execute('CREATE INDEX IF NOT EXISTS idx_carpet_carpet_type_id ON carpet(carpet_type_id)')
+        db.session.execute('CREATE INDEX IF NOT EXISTS idx_order_status ON marketplace_order(status)')
+        db.session.execute('CREATE INDEX IF NOT EXISTS idx_order_account_id ON marketplace_order(account_id)')
+        db.session.execute('CREATE INDEX IF NOT EXISTS idx_order_marketplace ON marketplace_order(marketplace)')
+        db.session.commit()
+        print("[DB] Индексы созданы")
+    except Exception as e:
+        print(f"[DB] Ошибка создания индексов: {e}")
+
 def get_db_version():
     try:
         result = db.session.execute("SELECT version FROM db_version LIMIT 1").fetchone()
@@ -314,6 +348,7 @@ def safe_add_column(table, column, type_sql):
 def init_database():
     os.makedirs(DATA_FOLDER, exist_ok=True)
     db.create_all()
+    add_indexes()
     current = get_db_version()
     if current == 0:
         set_db_version(DB_VERSION)
@@ -873,8 +908,21 @@ with app.app_context():
 # ========== ОСНОВНЫЕ МАРШРУТЫ ==========
 @app.route('/')
 def index():
+    # Пагинация - показываем по 50 ковров
+    page = request.args.get('page', 1, type=int)
+    per_page = 50
+    
+    pagination = Carpet.query.order_by(Carpet.id.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    
+    # Статистику считаем отдельно (быстро)
+    total_carpets = Carpet.query.count()
+    
     return render_template('index.html',
-        carpets=Carpet.query.all(),
+        carpets=pagination.items,
+        pagination=pagination,
+        total_carpets=total_carpets,
         craftsmen=Craftsman.query.all(),
         carpet_types=CarpetType.query.all(),
         new_orders_count=MarketplaceOrder.query.filter_by(status='new').count(),
