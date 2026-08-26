@@ -1799,4 +1799,4 @@ if __name__ == '__main__':
     print(f"Открой в браузере: http://localhost:{port}")
     print("="*60)
     threading.Thread(target=open_browser, args=(port,), daemon=True).start()
-    app.run(host='0.0.0.0', port=port, debug=False, threaded=True)
+    app.run(host='0.0.0.0', port=port, debug=False, threaded=True) 
