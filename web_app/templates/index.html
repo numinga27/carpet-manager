@@ -19,15 +19,37 @@
             border-radius: 20px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             overflow: hidden;
+            animation: slideUp 0.5s ease;
         }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
         .header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             padding: 25px 30px;
             text-align: center;
+            position: relative;
+            overflow: hidden;
         }
-        .header h1 { font-size: 28px; margin-bottom: 8px; }
-        .header p { font-size: 14px; opacity: 0.9; }
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 30% 50%, rgba(255,255,255,0.05) 0%, transparent 60%);
+            animation: shimmer 8s infinite linear;
+        }
+        @keyframes shimmer {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .header h1 { font-size: 28px; margin-bottom: 8px; position: relative; z-index: 1; }
+        .header p { font-size: 14px; opacity: 0.9; position: relative; z-index: 1; }
         .header a {
             color: white;
             text-decoration: none;
@@ -37,16 +59,24 @@
             padding: 5px 15px;
             border-radius: 20px;
             font-size: 12px;
+            transition: all 0.3s;
+            position: relative;
+            z-index: 1;
         }
+        .header a:hover { background: rgba(255,255,255,0.3); transform: scale(1.05); }
         
         /* Навигация */
         .nav {
             display: flex;
-            gap: 12px;
+            gap: 10px;
             padding: 15px 25px;
             background: #f8f9fa;
             border-bottom: 1px solid #e9ecef;
             flex-wrap: wrap;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
         }
         .nav button {
             padding: 10px 20px;
@@ -57,115 +87,150 @@
             border-radius: 8px;
             font-size: 14px;
             font-weight: 500;
-            transition: all 0.2s ease;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
         }
-        .nav button:hover { background: #5a67d8; transform: translateY(-2px); }
+        .nav button::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            transition: all 0.5s;
+            transform: translate(-50%, -50%);
+        }
+        .nav button:hover::after {
+            width: 300px;
+            height: 300px;
+        }
+        .nav button:hover { background: #5a67d8; transform: translateY(-2px); box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); }
         .nav .marketplace-btn { background: #27ae60; }
-        .nav .marketplace-btn:hover { background: #219a52; }
+        .nav .marketplace-btn:hover { background: #219a52; box-shadow: 0 4px 15px rgba(39, 174, 96, 0.4); }
         .nav .accounts-btn { background: #9b59b6; }
-        .nav .accounts-btn:hover { background: #8e44ad; }
+        .nav .accounts-btn:hover { background: #8e44ad; box-shadow: 0 4px 15px rgba(155, 89, 182, 0.4); }
         .nav .analytics-btn { background: #e67e22; }
-        .nav .analytics-btn:hover { background: #d35400; }
+        .nav .analytics-btn:hover { background: #d35400; box-shadow: 0 4px 15px rgba(230, 126, 34, 0.4); }
         .nav .token-btn { background: #e74c3c; }
-        .nav .token-btn:hover { background: #c0392b; }
+        .nav .token-btn:hover { background: #c0392b; box-shadow: 0 4px 15px rgba(231, 76, 60, 0.4); }
+        .nav .cleanup-btn { background: #8e44ad; }
+        .nav .cleanup-btn:hover { background: #732d91; box-shadow: 0 4px 15px rgba(142, 68, 173, 0.4); }
         
         .content { padding: 25px; }
         
-        /* Статистика маркетплейсов */
-        .marketplace-stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
+        /* Flash сообщения с анимацией */
+        .flash-messages { margin-bottom: 20px; }
+        .flash-message {
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            animation: slideIn 0.5s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
-        .marketplace-card {
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-30px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        .flash-success { background: #27ae60; color: white; }
+        .flash-error { background: #e74c3c; color: white; }
+        .flash-info { background: #3498db; color: white; }
+        .flash-warning { background: #f39c12; color: white; }
+        
+        /* Дерево статистики */
+        .stats-tree-wrapper {
+            margin-bottom: 25px;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #e9ecef;
+        }
+        .stats-tree-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 20px;
-            border-radius: 15px;
-            text-align: center;
+            padding: 15px 20px;
             cursor: pointer;
-            transition: transform 0.2s;
-        }
-        .marketplace-card:hover { transform: translateY(-3px); }
-        .marketplace-card h3 { font-size: 32px; margin-bottom: 8px; }
-        .marketplace-card p { font-size: 13px; opacity: 0.9; }
-        .marketplace-card.wb { background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%); }
-        .marketplace-card.ozon { background: linear-gradient(135deg, #e67e22 0%, #d35400 100%); }
-        .marketplace-card.ready { background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); }
-        .marketplace-card.accounts { background: linear-gradient(135deg, #1abc9c 0%, #16a085 100%); }
-        .marketplace-card.token { background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); }
-        .marketplace-card.orders { background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%); }
-        
-        /* Блок аккаунтов */
-        .accounts-stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 15px;
-            margin-bottom: 30px;
-        }
-        .account-card {
-            background: #f8f9fa;
-            border-radius: 15px;
-            padding: 15px;
-            cursor: pointer;
-            transition: all 0.2s;
-            border-left: 4px solid;
-        }
-        .account-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-        .account-card.wb { border-left-color: #9b59b6; }
-        .account-card.ozon { border-left-color: #e67e22; }
-        
-        .account-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 12px;
-            flex-wrap: wrap;
+            transition: all 0.3s;
+            user-select: none;
         }
-        .account-name { font-size: 16px; font-weight: bold; }
-        .account-badge {
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 10px;
-            font-weight: 600;
-            color: white;
+        .stats-tree-header:hover {
+            background: linear-gradient(135deg, #5a67d8 0%, #6c3a9e 100%);
         }
-        .badge-wb { background: #9b59b6; }
-        .badge-ozon { background: #e67e22; }
-        
-        .account-stats-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 10px;
-            margin: 12px 0;
-            text-align: center;
-        }
-        .account-stat {
-            background: white;
-            padding: 8px 5px;
-            border-radius: 10px;
-        }
-        .account-stat-number { font-size: 18px; font-weight: bold; }
-        .account-stat-label { font-size: 10px; color: #666; }
-        .account-footer {
+        .stats-tree-header h3 {
+            font-size: 16px;
             display: flex;
-            justify-content: space-between;
-            font-size: 11px;
-            color: #888;
-            margin-top: 10px;
-            padding-top: 8px;
-            border-top: 1px solid #e0e0e0;
+            align-items: center;
+            gap: 10px;
+        }
+        .stats-tree-header .arrow {
+            transition: transform 0.3s ease;
+            font-size: 20px;
+        }
+        .stats-tree-header .arrow.open {
+            transform: rotate(180deg);
+        }
+        .stats-tree-body {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s ease;
+            background: #f8f9fa;
+        }
+        .stats-tree-body.open {
+            max-height: 2000px;
+            padding: 20px;
         }
         
-        /* Flash сообщения */
-        .flash-messages { margin-bottom: 20px; }
-        .flash-success { background: #27ae60; color: white; padding: 12px 15px; border-radius: 8px; margin-bottom: 10px; }
-        .flash-error { background: #e74c3c; color: white; padding: 12px 15px; border-radius: 8px; margin-bottom: 10px; }
-        .flash-info { background: #3498db; color: white; padding: 12px 15px; border-radius: 8px; margin-bottom: 10px; }
-        .flash-warning { background: #f39c12; color: white; padding: 12px 15px; border-radius: 8px; margin-bottom: 10px; }
+        .stats-tree-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+        }
+        .stats-tree-item {
+            background: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border-left: 4px solid #667eea;
+        }
+        .stats-tree-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+        }
+        .stats-tree-item .number {
+            font-size: 28px;
+            font-weight: bold;
+            color: #667eea;
+            transition: all 0.3s;
+        }
+        .stats-tree-item .number.pulse {
+            animation: pulse 1.5s ease;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        .stats-tree-item .label {
+            font-size: 12px;
+            color: #888;
+            margin-top: 5px;
+        }
+        .stats-tree-item.wb { border-left-color: #9b59b6; }
+        .stats-tree-item.wb .number { color: #9b59b6; }
+        .stats-tree-item.ozon { border-left-color: #e67e22; }
+        .stats-tree-item.ozon .number { color: #e67e22; }
+        .stats-tree-item.accounts { border-left-color: #1abc9c; }
+        .stats-tree-item.accounts .number { color: #1abc9c; }
+        .stats-tree-item.token { border-left-color: #e74c3c; }
+        .stats-tree-item.token .number { color: #e74c3c; }
         
         /* Панель сканирования */
         .scan-panel {
@@ -175,6 +240,11 @@
             margin-bottom: 30px;
             color: white;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            animation: fadeIn 0.5s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
         .scan-panel h3 { margin-bottom: 8px; font-size: 18px; }
         .scan-panel p { font-size: 14px; opacity: 0.9; margin-bottom: 15px; }
@@ -188,9 +258,10 @@
             outline: none;
             font-family: monospace;
             min-width: 200px;
+            transition: all 0.3s;
         }
-        .scan-input input:focus { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5); }
-        .scan-result { margin-top: 15px; padding: 12px; border-radius: 10px; background: rgba(255, 255, 255, 0.1); font-size: 14px; }
+        .scan-input input:focus { box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3); transform: scale(1.02); }
+        .scan-result { margin-top: 15px; padding: 12px; border-radius: 10px; background: rgba(255, 255, 255, 0.1); font-size: 14px; animation: fadeIn 0.3s ease; }
         
         /* Поиск и фильтры */
         .filter-bar {
@@ -202,6 +273,7 @@
             background: #f8f9fa;
             border-radius: 10px;
             align-items: center;
+            animation: fadeIn 0.5s ease;
         }
         .filter-bar input, .filter-bar select {
             padding: 8px 15px;
@@ -210,6 +282,12 @@
             font-size: 14px;
             flex: 1;
             min-width: 150px;
+            transition: all 0.3s;
+        }
+        .filter-bar input:focus, .filter-bar select:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+            outline: none;
         }
         .filter-bar button {
             padding: 8px 20px;
@@ -219,19 +297,26 @@
             border-radius: 8px;
             cursor: pointer;
             font-size: 14px;
-            transition: all 0.2s;
+            transition: all 0.3s;
         }
-        .filter-bar button:hover { background: #5a67d8; }
+        .filter-bar button:hover { background: #5a67d8; transform: translateY(-2px); }
         .filter-bar .clear-btn { background: #95a5a6; }
         .filter-bar .clear-btn:hover { background: #7f8c8d; }
         
         /* Таблицы */
         h2 { margin: 25px 0 15px 0; color: #333; font-size: 20px; border-left: 4px solid #667eea; padding-left: 15px; }
-        .table-wrapper { overflow-x: auto; border-radius: 12px; border: 1px solid #e9ecef; }
+        .table-wrapper {
+            overflow-x: auto;
+            border-radius: 12px;
+            border: 1px solid #e9ecef;
+            animation: fadeIn 0.5s ease;
+        }
         table { width: 100%; border-collapse: collapse; font-size: 14px; }
         th { background: #f8f9fa; padding: 12px; text-align: left; font-weight: 600; color: #495057; border-bottom: 2px solid #dee2e6; }
         td { padding: 10px 12px; border-bottom: 1px solid #e9ecef; vertical-align: middle; }
+        tr { transition: all 0.2s; }
         tr:hover { background: #f8f9fa; }
+        tr.clickable-row { cursor: pointer; }
         
         .status-badge {
             display: inline-block;
@@ -240,20 +325,30 @@
             font-size: 12px;
             font-weight: 500;
             color: white;
+            transition: all 0.3s;
         }
+        .status-badge:hover { transform: scale(1.05); }
         .status-created { background: #3498db; }
         .status-scanned { background: #27ae60; }
         .status-sold { background: #95a5a6; }
         
         .action-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
-        .btn { padding: 5px 10px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.2s; }
-        .btn:hover { opacity: 0.85; }
+        .btn { padding: 5px 10px; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; transition: all 0.3s; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
         .btn-edit { background: #f39c12; color: white; }
         .btn-print { background: #3498db; color: white; }
         .btn-pdf { background: #e74c3c; color: white; }
         .btn-delete { background: #e74c3c; color: white; }
         .btn-scan { background: #27ae60; color: white; }
-        .qr-preview { max-width: 45px; max-height: 45px; cursor: pointer; border-radius: 8px; border: 1px solid #ddd; }
+        .qr-preview {
+            max-width: 45px;
+            max-height: 45px;
+            cursor: pointer;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            transition: all 0.3s;
+        }
+        .qr-preview:hover { transform: scale(1.5); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
         
         /* Пагинация */
         .pagination {
@@ -266,19 +361,20 @@
             padding: 15px;
             background: #f8f9fa;
             border-radius: 10px;
+            animation: fadeIn 0.5s ease;
         }
         .pagination a, .pagination span {
             padding: 8px 16px;
             border-radius: 8px;
             text-decoration: none;
             font-size: 14px;
-            transition: all 0.2s;
+            transition: all 0.3s;
         }
         .pagination a {
             background: #667eea;
             color: white;
         }
-        .pagination a:hover { background: #5a67d8; transform: translateY(-2px); }
+        .pagination a:hover { background: #5a67d8; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4); }
         .pagination .current {
             background: #e9ecef;
             color: #333;
@@ -315,6 +411,7 @@
             z-index: 1000;
             justify-content: center;
             align-items: center;
+            animation: fadeIn 0.3s ease;
         }
         .modal-content {
             background: white;
@@ -322,13 +419,9 @@
             width: 500px;
             max-width: 90%;
             border-radius: 20px;
-            animation: slideIn 0.3s ease;
+            animation: slideUp 0.3s ease;
             max-height: 90vh;
             overflow-y: auto;
-        }
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateY(-50px); }
-            to { opacity: 1; transform: translateY(0); }
         }
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; margin-bottom: 6px; font-weight: 500; color: #333; font-size: 13px; }
@@ -338,10 +431,18 @@
             border: 1px solid #ddd;
             border-radius: 8px;
             font-size: 14px;
+            transition: all 0.3s;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+            outline: none;
         }
         .modal-buttons { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
-        .btn-save { background: #27ae60; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; }
-        .btn-cancel { background: #95a5a6; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; }
+        .btn-save { background: #27ae60; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; transition: all 0.3s; }
+        .btn-save:hover { background: #219a52; transform: translateY(-2px); }
+        .btn-cancel { background: #95a5a6; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; transition: all 0.3s; }
+        .btn-cancel:hover { background: #7f8c8d; transform: translateY(-2px); }
         .range-labels { display: flex; justify-content: space-between; margin-top: 5px; font-size: 10px; color: #888; }
         
         @media (max-width: 768px) {
@@ -350,11 +451,10 @@
             .nav button { width: 100%; }
             th, td { padding: 8px; font-size: 12px; }
             .action-buttons { flex-direction: column; }
-            .accounts-stats { grid-template-columns: 1fr; }
-            .account-stats-grid { grid-template-columns: repeat(4, 1fr); }
             .filter-bar { flex-direction: column; }
             .filter-bar input, .filter-bar select { width: 100%; }
-            .marketplace-stats { grid-template-columns: repeat(2, 1fr); }
+            .stats-tree-grid { grid-template-columns: repeat(2, 1fr); }
+            .stats-tree-header h3 { font-size: 14px; }
         }
     </style>
 </head>
@@ -378,6 +478,7 @@
         <button onclick="window.location.href='/marketplace_accounts'" class="accounts-btn">🏪 Аккаунты</button>
         <button onclick="window.location.href='/wb_analytics'" class="analytics-btn">📊 WB Аналитика</button>
         <button onclick="window.location.href='/wb_token_input'" class="token-btn">🔑 Ввести токен WB</button>
+        <button onclick="cleanupCarpets()" class="cleanup-btn">🧹 Очистить старые</button>
         <button onclick="toggleScanPanel()" id="scanToggleBtn">✖️ Закрыть сканер</button>
     </div>
 
@@ -386,7 +487,8 @@
             {% if messages %}
                 <div class="flash-messages">
                     {% for category, message in messages %}
-                        <div class="flash-{{ category if category in ['success', 'error', 'info', 'warning'] else 'info' }}">
+                        <div class="flash-message flash-{{ category if category in ['success', 'error', 'info', 'warning'] else 'info' }}">
+                            <span>{% if category == 'success' %}✅{% elif category == 'error' %}❌{% elif category == 'warning' %}⚠️{% else %}ℹ️{% endif %}</span>
                             {{ message }}
                         </div>
                     {% endfor %}
@@ -394,33 +496,36 @@
             {% endif %}
         {% endwith %}
 
-        <!-- БЛОК СТАТИСТИКИ МАРКЕТПЛЕЙСОВ -->
-        <div class="marketplace-stats" id="marketplaceStats">
-            <div class="marketplace-card orders" onclick="window.location.href='/marketplace_orders?status=new'">
-                <h3 id="totalNew">0</h3>
-                <p>🆕 Новые заказы</p>
+        <!-- ДЕРЕВО СТАТИСТИКИ -->
+        <div class="stats-tree-wrapper">
+            <div class="stats-tree-header" onclick="toggleStatsTree()">
+                <h3>📊 Статистика маркетплейсов</h3>
+                <span class="arrow" id="statsArrow">▼</span>
             </div>
-            <div class="marketplace-card wb" onclick="window.location.href='/marketplace_orders?status=processing'">
-                <h3 id="totalProcessing">0</h3>
-                <p>⚙️ В обработке</p>
+            <div class="stats-tree-body" id="statsBody">
+                <div class="stats-tree-grid" id="statsTreeGrid">
+                    <div class="stats-tree-item" onclick="window.location.href='/marketplace_orders?status=new'">
+                        <div class="number" id="totalNew">0</div>
+                        <div class="label">🆕 Новые заказы</div>
+                    </div>
+                    <div class="stats-tree-item wb" onclick="window.location.href='/marketplace_orders?status=processing'">
+                        <div class="number" id="totalProcessing">0</div>
+                        <div class="label">⚙️ В обработке</div>
+                    </div>
+                    <div class="stats-tree-item ozon" onclick="window.location.href='/marketplace_orders?status=ready'">
+                        <div class="number" id="totalReady">0</div>
+                        <div class="label">✅ Готовы</div>
+                    </div>
+                    <div class="stats-tree-item accounts" onclick="window.location.href='/marketplace_accounts'">
+                        <div class="number" id="accountsCount">0</div>
+                        <div class="label">🏪 Аккаунтов</div>
+                    </div>
+                    <div class="stats-tree-item token" onclick="window.location.href='/wb_token_input'">
+                        <div class="number" id="tokenStatus">🔑</div>
+                        <div class="label">Токен WB</div>
+                    </div>
+                </div>
             </div>
-            <div class="marketplace-card ready" onclick="window.location.href='/marketplace_orders?status=ready'">
-                <h3 id="totalReady">0</h3>
-                <p>✅ Готовы</p>
-            </div>
-            <div class="marketplace-card accounts" onclick="window.location.href='/marketplace_accounts'">
-                <h3 id="accountsCount">0</h3>
-                <p>🏪 Аккаунтов</p>
-            </div>
-            <div class="marketplace-card token" onclick="window.location.href='/wb_token_input'">
-                <h3 id="tokenStatus">🔑</h3>
-                <p>Токен WB</p>
-            </div>
-        </div>
-
-        <!-- БЛОК АККАУНТОВ -->
-        <div class="accounts-stats" id="accountsStats">
-            <div style="text-align: center; padding: 20px; color: #999; grid-column: 1/-1;">Загрузка статистики...</div>
         </div>
 
         <!-- Панель сканирования -->
@@ -619,7 +724,25 @@
 </div></div>
 
 <script>
-    // Функции для модальных окон
+    // ========== ДЕРЕВО СТАТИСТИКИ ==========
+    let statsOpen = localStorage.getItem('statsOpen') === 'true';
+    
+    function toggleStatsTree() {
+        statsOpen = !statsOpen;
+        localStorage.setItem('statsOpen', statsOpen);
+        document.getElementById('statsBody').classList.toggle('open', statsOpen);
+        document.getElementById('statsArrow').classList.toggle('open', statsOpen);
+    }
+    
+    // При загрузке устанавливаем состояние дерева
+    document.addEventListener('DOMContentLoaded', function() {
+        if (statsOpen) {
+            document.getElementById('statsBody').classList.add('open');
+            document.getElementById('statsArrow').classList.add('open');
+        }
+    });
+    
+    // ========== ФУНКЦИИ ДЛЯ МОДАЛЬНЫХ ОКОН ==========
     function updatePrice() {
         const select = document.getElementById('carpet_type_id');
         if (select && select.selectedIndex >= 0) {
@@ -645,7 +768,13 @@
     }
     function closeModal(type) { document.getElementById(type + 'Modal').style.display = 'none'; }
     
-    // Панель сканирования
+    // Закрытие модального окна при клике вне его
+    window.onclick = function(event) { 
+        if (event.target.classList.contains('modal')) 
+            event.target.style.display = 'none'; 
+    }
+    
+    // ========== ПАНЕЛЬ СКАНИРОВАНИЯ ==========
     function toggleScanPanel() {
         const panel = document.getElementById('scanPanel');
         const btn = document.getElementById('scanToggleBtn');
@@ -661,7 +790,7 @@
         }
     }
     
-    // Поиск и фильтры
+    // ========== ПОИСК И ФИЛЬТРЫ ==========
     function applyFilters() {
         const search = document.getElementById('searchInput').value.trim();
         const status = document.getElementById('statusFilter').value;
@@ -688,7 +817,7 @@
         }
     });
     
-    // Сканирование QR
+    // ========== СКАНИРОВАНИЕ QR ==========
     async function scanQR() {
         const qrInput = document.getElementById('qrInput');
         const qrCode = qrInput.value.trim();
@@ -711,7 +840,7 @@
 
             if (result.success) {
                 resultDiv.innerHTML = `
-                    <div style="background: #27ae60; padding: 12px; border-radius: 8px;">
+                    <div style="background: #27ae60; padding: 12px; border-radius: 8px; animation: fadeIn 0.3s ease;">
                         ✅ Ковёр найден!<br>
                         📱 ID: ${result.carpet_id}<br>
                         🏷️ Тип: ${result.carpet_type}<br>
@@ -724,13 +853,13 @@
                 updateCarpetStatusInTable(result.carpet_id, result.scanned_at);
             } else if (result.already_scanned) {
                 resultDiv.innerHTML = `
-                    <div style="background: #f39c12; padding: 12px; border-radius: 8px;">
+                    <div style="background: #f39c12; padding: 12px; border-radius: 8px; animation: fadeIn 0.3s ease;">
                         ⚠️ Уже отсканирован: ${result.scanned_at}
                     </div>
                 `;
             } else {
                 resultDiv.innerHTML = `
-                    <div style="background: #e74c3c; padding: 12px; border-radius: 8px;">
+                    <div style="background: #e74c3c; padding: 12px; border-radius: 8px; animation: fadeIn 0.3s ease;">
                         ❌ ${result.message}
                     </div>
                 `;
@@ -763,78 +892,68 @@
         }
     }
     
+    // ========== УДАЛЕНИЕ ==========
     function deleteCarpet(id) { if (confirm('Удалить ковёр?')) window.location.href = '/delete_carpet/' + id; }
     function deleteCraftsman(id) { if (confirm('Удалить швею? Все ковры будут удалены!')) window.location.href = '/delete_craftsman/' + id; }
+    function cleanupCarpets() {
+        if (confirm('Удалить все отсканированные ковры старше 2 месяцев?')) {
+            window.location.href = '/cleanup_old_carpets';
+        }
+    }
+    
+    // ========== ПЕЧАТЬ ==========
     function printQR(carpetId) { window.open('/print_qr/' + carpetId, '_blank', 'width=450,height=600'); }
     function printSinglePDF(carpetId) { window.open('/print_single_pdf/' + carpetId, '_blank'); }
     
-    // Загрузка статистики по аккаунтам
+    // ========== ЗАГРУЗКА СТАТИСТИКИ ==========
     async function loadAccountsStats() {
         try {
             const response = await fetch('/marketplace_stats_api');
             const data = await response.json();
             
-            document.getElementById('totalNew').textContent = data.total.new;
-            document.getElementById('totalProcessing').textContent = data.total.processing;
-            document.getElementById('totalReady').textContent = data.total.ready;
+            // Анимируем обновление чисел
+            animateNumber('totalNew', data.total.new);
+            animateNumber('totalProcessing', data.total.processing);
+            animateNumber('totalReady', data.total.ready);
             document.getElementById('accountsCount').textContent = data.accounts.length;
             document.getElementById('tokenStatus').innerHTML = data.accounts.filter(a => a.marketplace === 'wb').length > 0 ? '✅' : '🔑';
             
-            const accountsContainer = document.getElementById('accountsStats');
-            if (data.accounts.length > 0) {
-                accountsContainer.innerHTML = data.accounts.map(acc => `
-                    <div class="account-card ${acc.marketplace}" onclick="window.location.href='/marketplace_orders?account_id=${acc.id}'">
-                        <div class="account-header">
-                            <div>
-                                <span class="account-name">${escapeHtml(acc.name)}</span>
-                                <span class="account-badge badge-${acc.marketplace}">${acc.marketplace === 'wb' ? 'WB' : 'Ozon'}</span>
-                            </div>
-                            <span style="font-size: 11px; color: #999;">${escapeHtml(acc.login) || ''}</span>
-                        </div>
-                        <div class="account-stats-grid">
-                            <div class="account-stat">
-                                <div class="account-stat-number" style="color: #27ae60;">${acc.new}</div>
-                                <div class="account-stat-label">🆕 Новые</div>
-                            </div>
-                            <div class="account-stat">
-                                <div class="account-stat-number" style="color: #f39c12;">${acc.processing}</div>
-                                <div class="account-stat-label">⚙️ В работе</div>
-                            </div>
-                            <div class="account-stat">
-                                <div class="account-stat-number" style="color: #3498db;">${acc.ready}</div>
-                                <div class="account-stat-label">✅ Готовы</div>
-                            </div>
-                            <div class="account-stat">
-                                <div class="account-stat-number" style="color: #95a5a6;">${acc.shipped}</div>
-                                <div class="account-stat-label">🚚 Отправл.</div>
-                            </div>
-                        </div>
-                        <div class="account-footer">
-                            <span>📦 Всего: ${acc.total}</span>
-                            <span>💰 ${acc.revenue.toLocaleString()} ₽</span>
-                            <span>🕐 ${acc.last_sync ? acc.last_sync.slice(0, 10) : 'нет синхр.'}</span>
-                        </div>
-                    </div>
-                `).join('');
-            } else {
-                accountsContainer.innerHTML = `
-                    <div style="text-align: center; padding: 20px; color: #999; grid-column: 1/-1;">
-                        Нет добавленных аккаунтов. Нажмите "Аккаунты" или "Ввести токен WB" чтобы добавить.
-                    </div>
-                `;
-            }
         } catch(e) {
             console.log('Ошибка загрузки статистики:', e);
         }
     }
     
-    function escapeHtml(text) {
-        if (!text) return '';
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
+    function animateNumber(elementId, target) {
+        const element = document.getElementById(elementId);
+        if (!element) return;
+        
+        const current = parseInt(element.textContent) || 0;
+        if (current === target) return;
+        
+        const duration = 500;
+        const startTime = performance.now();
+        const startValue = current;
+        
+        function updateNumber(currentTime) {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            const value = Math.round(startValue + (target - startValue) * eased);
+            
+            element.textContent = value;
+            element.classList.add('pulse');
+            
+            if (progress < 1) {
+                requestAnimationFrame(updateNumber);
+            } else {
+                element.textContent = target;
+                setTimeout(() => element.classList.remove('pulse'), 1500);
+            }
+        }
+        requestAnimationFrame(updateNumber);
     }
     
+    // ========== ГРУППОВОЕ ДОБАВЛЕНИЕ ==========
     document.getElementById('groupSubmitBtn')?.addEventListener('click', function(e) {
         const count = parseInt(document.querySelector('input[name="count"]').value);
         if (count > 500 && !confirm(`Создать ${count} ковров? Это может занять время.`)) {
@@ -845,6 +964,7 @@
         }
     });
     
+    // ========== ИНИЦИАЛИЗАЦИЯ ==========
     document.addEventListener('DOMContentLoaded', function() {
         const input = document.getElementById('qrInput');
         if (input) {
@@ -859,11 +979,6 @@
         loadAccountsStats();
         setInterval(loadAccountsStats, 30000);
     });
-    
-    window.onclick = function(event) { 
-        if (event.target.classList.contains('modal')) 
-            event.target.style.display = 'none'; 
-    }
 </script>
 </body>
 </html>
