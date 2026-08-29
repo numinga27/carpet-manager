@@ -108,8 +108,6 @@
         .nav button {
             padding: 8px 16px;
             border: none;
-            background: #667eea;
-            color: white;
             cursor: pointer;
             border-radius: 8px;
             font-size: 13px;
@@ -118,6 +116,7 @@
             position: relative;
             overflow: hidden;
             white-space: nowrap;
+            color: white;
         }
         .nav button::after {
             content: '';
@@ -140,40 +139,22 @@
             box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
         }
         
-        /* Цвета кнопок по группам */
         .nav .btn-primary { background: #667eea; }
         .nav .btn-primary:hover { background: #5a67d8; }
-        
         .nav .btn-success { background: #27ae60; }
         .nav .btn-success:hover { background: #219a52; box-shadow: 0 4px 15px rgba(39, 174, 96, 0.4); }
-        
         .nav .btn-purple { background: #9b59b6; }
         .nav .btn-purple:hover { background: #8e44ad; box-shadow: 0 4px 15px rgba(155, 89, 182, 0.4); }
-        
         .nav .btn-orange { background: #e67e22; }
         .nav .btn-orange:hover { background: #d35400; box-shadow: 0 4px 15px rgba(230, 126, 34, 0.4); }
-        
         .nav .btn-danger { background: #e74c3c; }
         .nav .btn-danger:hover { background: #c0392b; box-shadow: 0 4px 15px rgba(231, 76, 60, 0.4); }
-        
         .nav .btn-teal { background: #1abc9c; }
         .nav .btn-teal:hover { background: #16a085; box-shadow: 0 4px 15px rgba(26, 188, 156, 0.4); }
-        
         .nav .btn-gray { background: #95a5a6; }
         .nav .btn-gray:hover { background: #7f8c8d; box-shadow: 0 4px 15px rgba(149, 165, 166, 0.4); }
-        
         .nav .btn-pink { background: #e84393; }
         .nav .btn-pink:hover { background: #d63384; box-shadow: 0 4px 15px rgba(232, 67, 147, 0.4); }
-        
-        .nav .btn-sm {
-            padding: 6px 12px;
-            font-size: 12px;
-        }
-        
-        .nav .btn-xs {
-            padding: 4px 10px;
-            font-size: 11px;
-        }
         
         .content { padding: 25px; }
         
@@ -396,6 +377,9 @@
         .btn-pdf { background: #e74c3c; color: white; }
         .btn-delete { background: #e74c3c; color: white; }
         .btn-scan { background: #27ae60; color: white; }
+        .btn-toggle-qr { background: #667eea; color: white; }
+        
+        /* ========== QR-КОДЫ С ЛЕНИВОЙ ЗАГРУЗКОЙ ========== */
         .qr-preview {
             max-width: 45px;
             max-height: 45px;
@@ -403,6 +387,10 @@
             border-radius: 8px;
             border: 1px solid #ddd;
             transition: all 0.3s;
+            display: none;
+        }
+        .qr-preview.loaded {
+            display: block;
         }
         .qr-preview:hover { transform: scale(1.5); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
         
@@ -532,7 +520,6 @@
 
     <!-- ========== НАВИГАЦИЯ С ГРУППАМИ ========== -->
     <div class="nav">
-        <!-- Группа 1: Управление коврами -->
         <div class="nav-group">
             <div class="nav-group-label">📦 Управление коврами</div>
             <div class="nav-buttons">
@@ -540,10 +527,10 @@
                 <button class="btn-success" onclick="openModal('group')">📦 Групповое добавление</button>
                 <button class="btn-primary" onclick="window.location.href='/types'">🏷️ Типы ковров</button>
                 <button class="btn-primary" onclick="window.location.href='/mass_print_qr'">🖨️ Массовая печать</button>
+                <button class="btn-teal" onclick="toggleAllQR()">👁️ QR-коды</button>
             </div>
         </div>
 
-        <!-- Группа 2: Производство и персонал -->
         <div class="nav-group">
             <div class="nav-group-label">👥 Производство</div>
             <div class="nav-buttons">
@@ -553,7 +540,6 @@
             </div>
         </div>
 
-        <!-- Группа 3: Маркетплейсы -->
         <div class="nav-group">
             <div class="nav-group-label">🛒 Маркетплейсы</div>
             <div class="nav-buttons">
@@ -565,7 +551,6 @@
             </div>
         </div>
 
-        <!-- Группа 4: Сервисные функции -->
         <div class="nav-group">
             <div class="nav-group-label">⚙️ Сервис</div>
             <div class="nav-buttons">
@@ -669,13 +654,13 @@
                         <tr data-carpet-id="{{ carpet.carpet_id }}">
                             <td><strong>{{ carpet.carpet_id }}</strong></td>
                             <td>
-                                {% if carpet.qr_code_path %}
-                                <img src="/get_qr/{{ carpet.carpet_id }}" class="qr-preview" 
-                                     onclick="window.open('/get_qr/{{ carpet.carpet_id }}')" 
+                                <img src="/get_qr_thumb/{{ carpet.carpet_id }}" 
+                                     class="qr-preview" 
+                                     data-src="/get_qr/{{ carpet.carpet_id }}"
+                                     alt="QR"
+                                     loading="lazy"
+                                     onclick="window.open('/get_qr/{{ carpet.carpet_id }}')"
                                      title="Нажмите для просмотра QR-кода">
-                                {% else %}
-                                    <span style="color: #999;">Нет QR</span>
-                                {% endif %}
                             </td>
                             <td>{{ carpet.carpet_type_ref.name if carpet.carpet_type_ref else '-' }}</td>
                             <td>{{ carpet.craftsman_ref.name if carpet.craftsman_ref else '-' }}</td>
@@ -833,7 +818,41 @@
             document.getElementById('statsBody').classList.add('open');
             document.getElementById('statsArrow').classList.add('open');
         }
+        initLazyLoad();
     });
+    
+    // ========== ЛЕНИВАЯ ЗАГРУЗКА QR ==========
+    let qrVisible = false;
+    
+    function initLazyLoad() {
+        const qrImages = document.querySelectorAll('.qr-preview');
+        qrImages.forEach(img => {
+            img.style.display = 'none';
+        });
+    }
+    
+    function toggleAllQR() {
+        qrVisible = !qrVisible;
+        const qrImages = document.querySelectorAll('.qr-preview');
+        const btn = document.querySelector('.btn-teal');
+        
+        qrImages.forEach(img => {
+            if (qrVisible) {
+                const src = img.getAttribute('src') || img.dataset.src;
+                if (src && src !== '') {
+                    img.src = src;
+                }
+                img.style.display = 'block';
+                img.classList.add('loaded');
+            } else {
+                img.style.display = 'none';
+                img.classList.remove('loaded');
+            }
+        });
+        
+        btn.textContent = qrVisible ? '🙈 Скрыть QR' : '👁️ QR-коды';
+        btn.style.background = qrVisible ? '#e74c3c' : '#1abc9c';
+    }
     
     // ========== ФУНКЦИИ ДЛЯ МОДАЛЬНЫХ ОКОН ==========
     function updatePrice() {

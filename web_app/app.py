@@ -16,6 +16,7 @@ import json
 import traceback
 import logging
 from functools import lru_cache
+from sqlalchemy import text
 
 # ========== НАСТРОЙКА ЛОГИРОВАНИЯ ==========
 if getattr(sys, 'frozen', False):
@@ -39,7 +40,7 @@ logger.info(f"Режим: {'EXE' if getattr(sys, 'frozen', False) else 'скри
 logger.info(f"Путь к исполняемому файлу: {sys.executable}")
 logger.info(f"Лог-файл: {log_file}")
 
-# ========== ОПРЕДЕЛЕНИЕ ПУТЕЙ ДЛЯ ШАБЛОНОВ (РАБОТАЕТ В EXE) ==========
+# ========== ОПРЕДЕЛЕНИЕ ПУТЕЙ ДЛЯ ШАБЛОНОВ ==========
 def find_template_folder():
     possible_paths = []
     
@@ -148,6 +149,7 @@ app.config['SECRET_KEY'] = 'your-secret-key-here'
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'connect_args': {'check_same_thread': False}
 }
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 86400
 
 db = SQLAlchemy(app)
 
@@ -205,6 +207,7 @@ class Carpet(db.Model):
     scanned_by = db.Column(db.String(50), default='admin')
     notes = db.Column(db.Text)
     qr_code_path = db.Column(db.String(200))
+    qr_thumb_path = db.Column(db.String(200), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class ScanLog(db.Model):
@@ -307,45 +310,53 @@ def invalidate_cache():
     logger.info("[CACHE] Кеш очищен")
 
 # ========== МИГРАЦИЯ БД ==========
-DB_VERSION = 3
+DB_VERSION = 4
 
 def get_db_version():
     try:
-        result = db.session.execute("SELECT version FROM db_version LIMIT 1").fetchone()
+        result = db.session.execute(text("SELECT version FROM db_version LIMIT 1")).fetchone()
         return result[0] if result else 0
     except:
         return 0
 
 def set_db_version(version):
     try:
-        db.session.execute("CREATE TABLE IF NOT EXISTS db_version (version INTEGER)")
-        db.session.execute("DELETE FROM db_version")
-        db.session.execute("INSERT INTO db_version (version) VALUES (:version)", {'version': version})
+        db.session.execute(text("CREATE TABLE IF NOT EXISTS db_version (version INTEGER)"))
+        db.session.execute(text("DELETE FROM db_version"))
+        db.session.execute(text("INSERT INTO db_version (version) VALUES (:version)"), {'version': version})
         db.session.commit()
     except:
         pass
 
-def safe_add_column(table, column, type_sql):
+def ensure_column_exists(table, column, column_type):
+    """Проверяет существование колонки и добавляет если её нет"""
     try:
-        cursor = db.session.execute(f"PRAGMA table_info({table})").fetchall()
-        existing = [col[1] for col in cursor] if cursor else []
-        if column not in existing:
-            db.session.execute(f"ALTER TABLE {table} ADD COLUMN {column} {type_sql}")
+        cursor = db.session.execute(text(f"PRAGMA table_info({table})")).fetchall()
+        columns = [row[1] for row in cursor]
+        
+        if column not in columns:
+            logger.info(f"[MIGRATION] Добавляем колонку {column} в таблицу {table}")
+            db.session.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {column_type}"))
             db.session.commit()
-            print(f"[MIGRATION] Добавлена колонка {column} в {table}")
+            logger.info(f"[MIGRATION] Колонка {column} успешно добавлена")
+            return True
+        else:
+            logger.info(f"[MIGRATION] Колонка {column} уже существует")
+            return True
     except Exception as e:
-        print(f"[MIGRATION] Ошибка добавления {column}: {e}")
+        logger.error(f"[MIGRATION] Ошибка при проверке/добавлении колонки {column}: {e}")
+        return False
 
 def add_indexes():
     try:
-        db.session.execute('CREATE INDEX IF NOT EXISTS idx_carpet_status ON carpet(status)')
-        db.session.execute('CREATE INDEX IF NOT EXISTS idx_carpet_scanned_at ON carpet(scanned_at)')
-        db.session.execute('CREATE INDEX IF NOT EXISTS idx_carpet_carpet_id ON carpet(carpet_id)')
-        db.session.execute('CREATE INDEX IF NOT EXISTS idx_carpet_craftsman_id ON carpet(craftsman_id)')
-        db.session.execute('CREATE INDEX IF NOT EXISTS idx_carpet_carpet_type_id ON carpet(carpet_type_id)')
-        db.session.execute('CREATE INDEX IF NOT EXISTS idx_order_status ON marketplace_order(status)')
-        db.session.execute('CREATE INDEX IF NOT EXISTS idx_order_account_id ON marketplace_order(account_id)')
-        db.session.execute('CREATE INDEX IF NOT EXISTS idx_order_marketplace ON marketplace_order(marketplace)')
+        db.session.execute(text('CREATE INDEX IF NOT EXISTS idx_carpet_status ON carpet(status)'))
+        db.session.execute(text('CREATE INDEX IF NOT EXISTS idx_carpet_scanned_at ON carpet(scanned_at)'))
+        db.session.execute(text('CREATE INDEX IF NOT EXISTS idx_carpet_carpet_id ON carpet(carpet_id)'))
+        db.session.execute(text('CREATE INDEX IF NOT EXISTS idx_carpet_craftsman_id ON carpet(craftsman_id)'))
+        db.session.execute(text('CREATE INDEX IF NOT EXISTS idx_carpet_carpet_type_id ON carpet(carpet_type_id)'))
+        db.session.execute(text('CREATE INDEX IF NOT EXISTS idx_order_status ON marketplace_order(status)'))
+        db.session.execute(text('CREATE INDEX IF NOT EXISTS idx_order_account_id ON marketplace_order(account_id)'))
+        db.session.execute(text('CREATE INDEX IF NOT EXISTS idx_order_marketplace ON marketplace_order(marketplace)'))
         db.session.commit()
         print("[DB] Индексы созданы")
     except Exception as e:
@@ -356,65 +367,62 @@ def init_database():
     db.create_all()
     add_indexes()
     
+    # Проверяем и добавляем колонку qr_thumb_path если её нет
+    ensure_column_exists('carpet', 'qr_thumb_path', 'VARCHAR(200)')
+    
     current = get_db_version()
+    print(f"[DB] Текущая версия БД: {current}")
+    
     if current == 0:
         set_db_version(DB_VERSION)
     elif current < DB_VERSION:
-        if current == 2:
-            db.session.execute("""
-                CREATE TABLE IF NOT EXISTS cleanup_settings (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    auto_cleanup BOOLEAN DEFAULT 1,
-                    cleanup_days INTEGER DEFAULT 60,
-                    last_cleanup VARCHAR(20),
-                    created_at DATETIME
-                )
-            """)
-            db.session.commit()
-            set_db_version(3)
-        else:
-            set_db_version(DB_VERSION)
+        set_db_version(DB_VERSION)
 
 # ========== ФУНКЦИИ ==========
 def generate_qr_code(carpet_id, _):
-    """Генерирует QR-код для ковра"""
     try:
         qr = qrcode.QRCode(
             version=1, 
-            box_size=8, 
-            border=2, 
+            box_size=6,
+            border=1,
             error_correction=qrcode.constants.ERROR_CORRECT_M
         )
         qr.add_data(carpet_id)
         qr.make(fit=True)
         img = qr.make_image(fill_color="black", back_color="white")
         
-        # Убеждаемся что папка существует
         os.makedirs(QR_FOLDER, exist_ok=True)
         
+        img = img.resize((120, 120))
         path = os.path.join(QR_FOLDER, f"carpet_{carpet_id}.png")
-        img.save(path, optimize=True)
+        img.save(path, optimize=True, quality=75)
+        
+        thumb = img.resize((45, 45))
+        thumb_path = os.path.join(QR_FOLDER, f"thumb_{carpet_id}.png")
+        thumb.save(thumb_path, optimize=True, quality=70)
         
         logger.info(f"[QR] Сгенерирован QR для {carpet_id}")
-        return path
+        return path, thumb_path
     except Exception as e:
         logger.error(f"[QR] Ошибка генерации QR для {carpet_id}: {e}")
-        return None
+        return None, None
 
 def generate_next_id():
-    """Генерирует следующий уникальный ID с проверкой существования"""
     try:
-        all_carpets = Carpet.query.all()
-        max_num = 0
+        from sqlalchemy import func
+        max_result = db.session.query(func.max(Carpet.id)).scalar()
         
-        for carpet in all_carpets:
-            try:
-                if carpet.carpet_id and '-' in carpet.carpet_id:
-                    num = int(carpet.carpet_id.split('-')[1])
-                    if num > max_num:
-                        max_num = num
-            except:
-                continue
+        if max_result:
+            last_carpet = Carpet.query.filter_by(id=max_result).first()
+            if last_carpet and last_carpet.carpet_id and '-' in last_carpet.carpet_id:
+                try:
+                    max_num = int(last_carpet.carpet_id.split('-')[1])
+                except:
+                    max_num = Carpet.query.count()
+            else:
+                max_num = Carpet.query.count()
+        else:
+            max_num = 0
         
         new_num = max_num + 1
         new_id = f"CARPET-{new_num:04d}"
@@ -453,11 +461,12 @@ def cleanup_old_carpets(days=60):
             logger.info(f"[CLEANUP] Найдено {count} старых отсканированных ковров для удаления")
             
             for carpet in old_carpets:
-                if carpet.qr_code_path and os.path.exists(carpet.qr_code_path):
-                    try:
-                        os.remove(carpet.qr_code_path)
-                    except Exception as e:
-                        logger.error(f"[CLEANUP] Ошибка удаления QR: {e}")
+                for path in [carpet.qr_code_path, carpet.qr_thumb_path]:
+                    if path and os.path.exists(path):
+                        try:
+                            os.remove(path)
+                        except Exception as e:
+                            logger.error(f"[CLEANUP] Ошибка удаления файла: {e}")
                 db.session.delete(carpet)
             
             db.session.commit()
@@ -959,12 +968,10 @@ def save_wb_token():
 
 # ========== ИНИЦИАЛИЗАЦИЯ ==========
 with app.app_context():
+    # Сначала инициализируем БД (создаем таблицы и добавляем недостающие колонки)
     init_database()
     
-    deleted = auto_cleanup()
-    if deleted > 0:
-        print(f"[CLEANUP] Автоматически удалено {deleted} старых отсканированных ковров")
-    
+    # Затем создаем начальные данные (если их нет)
     if CarpetType.query.count() == 0:
         for t in [CarpetType(name="Персидский", base_price=15000),
                   CarpetType(name="Турецкий", base_price=12000),
@@ -994,14 +1001,24 @@ with app.app_context():
             db.session.add(c)
         db.session.commit()
         for c in Carpet.query.all():
-            c.qr_code_path = generate_qr_code(c.carpet_id, {})
+            qr_path, thumb_path = generate_qr_code(c.carpet_id, {})
+            c.qr_code_path = qr_path
+            c.qr_thumb_path = thumb_path
         db.session.commit()
+    
+    # Только после создания всех данных - запускаем очистку
+    try:
+        deleted = auto_cleanup()
+        if deleted > 0:
+            print(f"[CLEANUP] Автоматически удалено {deleted} старых отсканированных ковров")
+    except Exception as e:
+        print(f"[CLEANUP] Ошибка при очистке (игнорируем): {e}")
 
 # ========== ОСНОВНЫЕ МАРШРУТЫ ==========
 @app.route('/')
 def index():
     page = request.args.get('page', 1, type=int)
-    per_page = 50
+    per_page = 30
     
     pagination = Carpet.query.order_by(Carpet.id.desc()).paginate(
         page=page, per_page=per_page, error_out=False
@@ -1020,6 +1037,24 @@ def index():
         ready_orders_count=MarketplaceOrder.query.filter_by(status='ready').count(),
         accounts_count=MarketplaceAccount.query.filter_by(is_active=True).count()
     )
+
+@app.route('/get_qr/<carpet_id>')
+def get_qr(carpet_id):
+    carpet = Carpet.query.filter_by(carpet_id=carpet_id).first()
+    if carpet and carpet.qr_code_path and os.path.exists(carpet.qr_code_path):
+        response = send_file(carpet.qr_code_path, mimetype='image/png')
+        response.headers['Cache-Control'] = 'public, max-age=86400'
+        return response
+    return "QR не найден", 404
+
+@app.route('/get_qr_thumb/<carpet_id>')
+def get_qr_thumb(carpet_id):
+    carpet = Carpet.query.filter_by(carpet_id=carpet_id).first()
+    if carpet and carpet.qr_thumb_path and os.path.exists(carpet.qr_thumb_path):
+        response = send_file(carpet.qr_thumb_path, mimetype='image/png')
+        response.headers['Cache-Control'] = 'public, max-age=86400'
+        return response
+    return "", 204
 
 @app.route('/wb_analytics')
 def wb_analytics():
@@ -1106,7 +1141,9 @@ def add_carpet():
         )
         db.session.add(carpet)
         db.session.commit()
-        carpet.qr_code_path = generate_qr_code(cid, {})
+        qr_path, thumb_path = generate_qr_code(cid, {})
+        carpet.qr_code_path = qr_path
+        carpet.qr_thumb_path = thumb_path
         db.session.commit()
         invalidate_cache()
         flash(f'✅ Ковёр {cid} добавлен', 'success')
@@ -1154,9 +1191,9 @@ def add_carpet_group():
             db.session.add(carpet)
             db.session.flush()
             
-            # ✅ ГЕНЕРИРУЕМ QR-КОД СРАЗУ
-            qr_path = generate_qr_code(cid, {})
+            qr_path, thumb_path = generate_qr_code(cid, {})
             carpet.qr_code_path = qr_path
+            carpet.qr_thumb_path = thumb_path
             
             created.append(cid)
             
@@ -1199,7 +1236,9 @@ def edit_carpet(id):
             carpet.color = request.form.get('color','')
             carpet.notes = request.form.get('notes','')
             db.session.commit()
-            carpet.qr_code_path = generate_qr_code(carpet.carpet_id, {})
+            qr_path, thumb_path = generate_qr_code(carpet.carpet_id, {})
+            carpet.qr_code_path = qr_path
+            carpet.qr_thumb_path = thumb_path
             db.session.commit()
             invalidate_cache()
             flash(f'✅ Ковёр {carpet.carpet_id} обновлён', 'success')
@@ -1214,8 +1253,12 @@ def edit_carpet(id):
 @app.route('/delete_carpet/<int:id>')
 def delete_carpet(id):
     carpet = Carpet.query.get_or_404(id)
-    if carpet.qr_code_path and os.path.exists(carpet.qr_code_path):
-        os.remove(carpet.qr_code_path)
+    for path in [carpet.qr_code_path, carpet.qr_thumb_path]:
+        if path and os.path.exists(path):
+            try:
+                os.remove(path)
+            except:
+                pass
     db.session.delete(carpet)
     db.session.commit()
     invalidate_cache()
@@ -1255,8 +1298,12 @@ def delete_craftsman(id):
     c = Craftsman.query.get_or_404(id)
     cnt = len(c.carpets)
     for carpet in c.carpets:
-        if carpet.qr_code_path and os.path.exists(carpet.qr_code_path):
-            os.remove(carpet.qr_code_path)
+        for path in [carpet.qr_code_path, carpet.qr_thumb_path]:
+            if path and os.path.exists(path):
+                try:
+                    os.remove(path)
+                except:
+                    pass
     db.session.delete(c)
     db.session.commit()
     invalidate_cache()
@@ -1362,13 +1409,6 @@ def mark_sold(id):
         db.session.commit()
         return jsonify({'success': True, 'message': 'Ковёр отмечен как проданный'})
     return jsonify({'success': False, 'message': 'Ковёр ещё не отсканирован'})
-
-@app.route('/get_qr/<carpet_id>')
-def get_qr(carpet_id):
-    carpet = Carpet.query.filter_by(carpet_id=carpet_id).first()
-    if carpet and carpet.qr_code_path and os.path.exists(carpet.qr_code_path):
-        return send_file(carpet.qr_code_path, mimetype='image/png')
-    return "QR не найден", 404
 
 @app.route('/print_qr/<carpet_id>')
 def print_qr(carpet_id):
@@ -1685,7 +1725,6 @@ def generate_single_pages_pdf():
 
 @app.route('/generate_single_pages_pdf_part')
 def generate_single_pages_pdf_part():
-    """Генерация PDF с пагинацией - по 200 ковров на PDF"""
     carpet_type_id = request.args.get('carpet_type_id', '')
     craftsman_id = request.args.get('craftsman_id', '')
     status = request.args.get('status', '')
@@ -2144,7 +2183,7 @@ def export_db():
 @app.route('/check_db')
 def check_db():
     try:
-        db.session.execute('SELECT 1')
+        db.session.execute(text('SELECT 1'))
         return jsonify({
             'status': 'ok',
             'database_path': DB_PATH,
