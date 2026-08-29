@@ -337,7 +337,6 @@ def safe_add_column(table, column, type_sql):
         print(f"[MIGRATION] Ошибка добавления {column}: {e}")
 
 def add_indexes():
-    """Добавляет индексы для ускорения запросов"""
     try:
         db.session.execute('CREATE INDEX IF NOT EXISTS idx_carpet_status ON carpet(status)')
         db.session.execute('CREATE INDEX IF NOT EXISTS idx_carpet_scanned_at ON carpet(scanned_at)')
@@ -362,7 +361,6 @@ def init_database():
         set_db_version(DB_VERSION)
     elif current < DB_VERSION:
         if current == 2:
-            # Добавляем таблицу настроек очистки
             db.session.execute("""
                 CREATE TABLE IF NOT EXISTS cleanup_settings (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -379,19 +377,33 @@ def init_database():
 
 # ========== ФУНКЦИИ ==========
 def generate_qr_code(carpet_id, _):
-    qr = qrcode.QRCode(version=1, box_size=8, border=2, error_correction=qrcode.constants.ERROR_CORRECT_M)
-    qr.add_data(carpet_id)
-    qr.make(fit=True)
-    img = qr.make_image(fill_color="black", back_color="white")
-    img = img.resize((200, 200))
-    path = os.path.join(QR_FOLDER, f"carpet_{carpet_id}.png")
-    img.save(path, optimize=True)
-    return path
+    """Генерирует QR-код для ковра"""
+    try:
+        qr = qrcode.QRCode(
+            version=1, 
+            box_size=8, 
+            border=2, 
+            error_correction=qrcode.constants.ERROR_CORRECT_M
+        )
+        qr.add_data(carpet_id)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+        
+        # Убеждаемся что папка существует
+        os.makedirs(QR_FOLDER, exist_ok=True)
+        
+        path = os.path.join(QR_FOLDER, f"carpet_{carpet_id}.png")
+        img.save(path, optimize=True)
+        
+        logger.info(f"[QR] Сгенерирован QR для {carpet_id}")
+        return path
+    except Exception as e:
+        logger.error(f"[QR] Ошибка генерации QR для {carpet_id}: {e}")
+        return None
 
 def generate_next_id():
     """Генерирует следующий уникальный ID с проверкой существования"""
     try:
-        # Находим все ID
         all_carpets = Carpet.query.all()
         max_num = 0
         
@@ -404,32 +416,27 @@ def generate_next_id():
             except:
                 continue
         
-        # Генерируем новый ID
         new_num = max_num + 1
         new_id = f"CARPET-{new_num:04d}"
         
-        # Проверяем что такой ID еще не существует
         existing = Carpet.query.filter_by(carpet_id=new_id).first()
         if existing:
-            # Если занят - ищем следующий свободный
             while True:
                 new_num += 1
                 new_id = f"CARPET-{new_num:04d}"
                 if not Carpet.query.filter_by(carpet_id=new_id).first():
                     break
         
-        logger.info(f"[ID] Сгенерирован новый ID: {new_id} (на основе макс. номера {max_num})")
+        logger.info(f"[ID] Сгенерирован новый ID: {new_id}")
         return new_id
         
     except Exception as e:
         logger.error(f"[ID] Ошибка генерации ID: {e}")
-        # Fallback - используем count + 1
         count = Carpet.query.count()
         new_id = f"CARPET-{count + 1:04d}"
         return new_id
 
 def cleanup_old_carpets(days=60):
-    """Автоматическое удаление отсканированных ковров старше N дней"""
     try:
         cutoff_date = datetime.now() - timedelta(days=days)
         cutoff_str = cutoff_date.strftime("%Y-%m-%d %H:%M:%S")
@@ -466,7 +473,6 @@ def cleanup_old_carpets(days=60):
         return 0
 
 def auto_cleanup():
-    """Автоматическая очистка с проверкой настроек"""
     try:
         settings = CleanupSettings.query.first()
         if not settings:
@@ -955,7 +961,6 @@ def save_wb_token():
 with app.app_context():
     init_database()
     
-    # Автоматическая очистка старых ковров
     deleted = auto_cleanup()
     if deleted > 0:
         print(f"[CLEANUP] Автоматически удалено {deleted} старых отсканированных ковров")
@@ -1148,7 +1153,11 @@ def add_carpet_group():
             )
             db.session.add(carpet)
             db.session.flush()
-            carpet.qr_code_path = generate_qr_code(cid, {})
+            
+            # ✅ ГЕНЕРИРУЕМ QR-КОД СРАЗУ
+            qr_path = generate_qr_code(cid, {})
+            carpet.qr_code_path = qr_path
+            
             created.append(cid)
             
             if (i+1) % 50 == 0:
@@ -1655,7 +1664,6 @@ def generate_single_pages_pdf():
             
             c.showPage()
             
-            # Очищаем память каждые 50 страниц
             if i % 50 == 0:
                 gc.collect()
         
@@ -2066,7 +2074,6 @@ def stats():
 
 @app.route('/check_ids')
 def check_ids():
-    """Проверка ID ковров на дубликаты"""
     all_ids = Carpet.query.all()
     ids_list = [c.carpet_id for c in all_ids]
     duplicates = [id for id in ids_list if ids_list.count(id) > 1]
@@ -2091,7 +2098,6 @@ def check_ids():
 
 @app.route('/cleanup_old_carpets')
 def cleanup_old_carpets_route():
-    """Ручной запуск очистки старых ковров"""
     days = request.args.get('days', 60, type=int)
     deleted = cleanup_old_carpets(days)
     
@@ -2126,7 +2132,6 @@ def update_cleanup_settings():
 
 @app.route('/export_db')
 def export_db():
-    """Экспорт базы данных для бэкапа"""
     if os.path.exists(DB_PATH):
         return send_file(
             DB_PATH,
