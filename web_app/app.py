@@ -1542,39 +1542,108 @@ def generate_qr_pdf():
     if not carpets:
         flash('Нет ковров для печати', 'error')
         return redirect(url_for('mass_print_qr'))
+    
     try:
-        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.pagesizes import A4, landscape
         from reportlab.pdfgen import canvas
         from reportlab.lib.utils import ImageReader
         from PIL import Image
+        from reportlab.lib.units import mm
+        
         buffer = io.BytesIO()
-        w, h = A4
+        
+        # Размеры листа
+        page_width, page_height = A4
+        
+        # Параметры сетки 3x4 (12 наклеек)
+        cols = 3   # 3 колонки
+        rows = 4   # 4 строки
+        spacing = 5 * mm
+        margin = 10 * mm
+        
+        # Размер каждой наклейки
+        sticker_width = (page_width - 2 * margin - (cols - 1) * spacing) / cols
+        sticker_height = (page_height - 2 * margin - (rows - 1) * spacing) / rows
+        
+        # Размер QR внутри наклейки
+        qr_size = min(sticker_width * 0.6, sticker_height * 0.6)
+        
+        c = canvas.Canvas(buffer, pagesize=A4)
+        
         for i, carpet in enumerate(carpets):
-            if not carpet.qr_code_path or not os.path.exists(carpet.qr_code_path):
-                continue
-            pil = Image.open(carpet.qr_code_path).resize((int(w), int(h)), Image.Resampling.LANCZOS)
-            tmp = io.BytesIO()
-            pil.save(tmp, format='PNG')
-            tmp.seek(0)
-            c = canvas.Canvas(buffer, pagesize=A4)
-            c.drawImage(ImageReader(tmp), 0, 0, w, h)
-            c.setFillColorRGB(1,1,1)
-            c.rect(0,0,w,55, fill=1, stroke=0)
-            c.setFillColorRGB(0,0,0)
-            c.setFont("Helvetica-Bold", 14)
-            ct = db.session.get(CarpetType, carpet.carpet_type_id)
-            cr = db.session.get(Craftsman, carpet.craftsman_id)
-            c.drawCentredString(w/2, 38, carpet.carpet_id)
-            c.setFont("Helvetica", 10)
-            c.drawCentredString(w/2, 24, f"{ct.name if ct else '-'} | {cr.name if cr else '-'} | {carpet.price} ₽")
-            c.setFont("Helvetica", 8)
-            c.drawCentredString(w/2, 10, f"{i+1}/{len(carpets)}")
+            # Определяем позицию наклейки на листе
+            pos_in_page = i % 12
+            col = pos_in_page % cols
+            row = pos_in_page // cols
+            
+            x = margin + col * (sticker_width + spacing)
+            y = page_height - margin - (row + 1) * sticker_height - row * spacing
+            
+            # Рисуем рамку наклейки
+            c.setStrokeColorRGB(0.8, 0.8, 0.8)
+            c.setLineWidth(0.5)
+            c.rect(x, y, sticker_width, sticker_height)
+            
+            # Загружаем QR-код
+            if carpet.qr_code_path and os.path.exists(carpet.qr_code_path):
+                try:
+                    pil_img = Image.open(carpet.qr_code_path)
+                    
+                    # QR в центре наклейки
+                    qr_x = x + (sticker_width - qr_size) / 2
+                    qr_y = y + (sticker_height - qr_size) / 2 + 5 * mm
+                    
+                    # Конвертируем в нужный формат
+                    temp_buffer = io.BytesIO()
+                    pil_img.save(temp_buffer, format='PNG')
+                    temp_buffer.seek(0)
+                    
+                    qr_img = ImageReader(temp_buffer)
+                    c.drawImage(qr_img, qr_x, qr_y, qr_size, qr_size)
+                    
+                    # Текст под QR
+                    c.setFillColorRGB(0, 0, 0)
+                    c.setFont("Helvetica-Bold", 7)
+                    
+                    # ID ковра
+                    text_x = x + sticker_width / 2
+                    text_y = y + 3 * mm
+                    c.drawCentredString(text_x, text_y, carpet.carpet_id)
+                    
+                    # Цена (поменьше)
+                    c.setFont("Helvetica", 6)
+                    price_y = y + 1 * mm
+                    c.drawCentredString(text_x, price_y, f"{carpet.price} ₽")
+                    
+                except Exception as e:
+                    logger.error(f"Ошибка обработки QR для {carpet.carpet_id}: {e}")
+            
+            # Если закончилась страница - сохраняем и создаем новую
+            if (i + 1) % 12 == 0:
+                c.showPage()
+                c = canvas.Canvas(buffer, pagesize=A4)
+        
+        # Сохраняем последнюю страницу если есть
+        if len(carpets) % 12 != 0:
             c.save()
+        else:
+            # Если последняя страница была полной, canvas уже сохранен
+            pass
+        
         buffer.seek(0)
-        return send_file(buffer, mimetype='application/pdf', as_attachment=True, download_name=f'qr_print_{len(carpets)}_pages.pdf')
+        
+        return send_file(
+            buffer, 
+            mimetype='application/pdf', 
+            as_attachment=True, 
+            download_name=f'qr_stickers_{len(carpets)}_pages.pdf'
+        )
     except Exception as e:
-        return f"Ошибка: {e}", 500
-
+        logger.error(f"Ошибка генерации PDF: {e}")
+        traceback.print_exc()
+        flash(f'❌ Ошибка генерации PDF: {str(e)[:200]}', 'error')
+        return redirect(url_for('mass_print_qr'))
+    
 @app.route('/generate_single_pages_pdf')
 def generate_single_pages_pdf():
     carpet_type_id = request.args.get('carpet_type_id', '')
