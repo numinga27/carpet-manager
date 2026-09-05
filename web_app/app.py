@@ -1466,8 +1466,11 @@ def mass_print_qr():
     c = request.args.get('craftsman_id','')
     s = request.args.get('status','')
     
-    MAX_PRINT = 200
+    # Параметры пагинации для списка
+    page = int(request.args.get('page', 1))
+    per_page = int(request.args.get('per_page', 100))  # 100 ковров на страницу списка
     
+    # Строим запрос
     query = Carpet.query
     if t:
         query = query.filter(Carpet.carpet_type_id == t)
@@ -1486,15 +1489,21 @@ def mass_print_qr():
             craftsmen=Craftsman.query.all(),
             selected_type=t, selected_craftsman=c, selected_status=s)
     
-    if total_count > MAX_PRINT:
-        flash(f'⚠️ Найдено {total_count} ковров. Для печати будет взято только {MAX_PRINT}. Уточните фильтры.', 'warning')
-        carpets = query.limit(MAX_PRINT).all()
-    else:
-        carpets = query.all()
+    # Пагинация для списка ковров
+    paginated = query.paginate(page=page, per_page=per_page, error_out=False)
+    carpets = paginated.items
+    total_pages = paginated.pages
+    
+    # Информационное сообщение
+    if total_count > 100:
+        flash(f'📊 Найдено {total_count} ковров. Показано {len(carpets)} на странице. Выберите количество для печати в настройках.', 'info')
     
     return render_template('mass_print.html', 
         carpets=carpets,
         total_count=total_count,
+        total_pages=total_pages,
+        current_page=page,
+        per_page=per_page,
         carpet_types=CarpetType.query.all(),
         craftsmen=Craftsman.query.all(),
         selected_type=t, selected_craftsman=c, selected_status=s)
@@ -1533,69 +1542,108 @@ def generate_qr_pdf():
     t = request.args.get('carpet_type_id','')
     c = request.args.get('craftsman_id','')
     s = request.args.get('status','')
-    q = Carpet.query
-    if t: q = q.filter(Carpet.carpet_type_id == t)
-    if c: q = q.filter(Carpet.craftsman_id == c)
-    if s: q = q.filter(Carpet.status == s)
-    carpets = q.limit(500).all()
+    
+    # Получаем количество для печати (по умолчанию 200)
+    try:
+        limit = int(request.args.get('limit', 200))
+    except:
+        limit = 200
+    
+    # Ограничиваем максимум 1000 (чтобы не перегружать)
+    if limit > 1000:
+        limit = 1000
+        flash(f'⚠️ Максимум 1000 ковров за раз', 'warning')
+    
+    # Получаем номер страницы (для постраничной печати)
+    page = int(request.args.get('page', 1))
+    offset = (page - 1) * limit
+    
+    query = Carpet.query
+    if t: 
+        query = query.filter(Carpet.carpet_type_id == t)
+    if c: 
+        query = query.filter(Carpet.craftsman_id == c)
+    if s: 
+        query = query.filter(Carpet.status == s)
+    
+    total_count = query.count()
+    
+    if total_count == 0:
+        flash('❌ Нет ковров для печати', 'error')
+        return redirect(url_for('mass_print_qr'))
+    
+    # Берем только нужное количество с учетом пагинации
+    carpets = query.offset(offset).limit(limit).all()
     
     if not carpets:
-        flash('Нет ковров для печати', 'error')
+        flash('❌ Нет ковров для печати', 'error')
         return redirect(url_for('mass_print_qr'))
     
     try:
-        from reportlab.lib.pagesizes import A4, landscape
+        from reportlab.lib.pagesizes import A4
         from reportlab.pdfgen import canvas
         from reportlab.lib.utils import ImageReader
         from PIL import Image
         from reportlab.lib.units import mm
+        import math
         
         buffer = io.BytesIO()
-        
-        # Размеры листа
         page_width, page_height = A4
         
-        # Параметры сетки 3x4 (12 наклеек)
-        cols = 3   # 3 колонки
-        rows = 4   # 4 строки
+        # Параметры сетки
+        cols = 3
+        rows = 4
         spacing = 5 * mm
         margin = 10 * mm
         
-        # Размер каждой наклейки
+        # Размер наклейки
         sticker_width = (page_width - 2 * margin - (cols - 1) * spacing) / cols
         sticker_height = (page_height - 2 * margin - (rows - 1) * spacing) / rows
         
-        # Размер QR внутри наклейки
-        qr_size = min(sticker_width * 0.6, sticker_height * 0.6)
+        # QR занимает 70% от размера наклейки
+        qr_size = min(sticker_width * 0.7, sticker_height * 0.65)
         
+        # Шрифты
+        font_id_size = 8
+        font_price_size = 7
+        font_type_size = 6
+        
+        # Создаем PDF
         c = canvas.Canvas(buffer, pagesize=A4)
         
         for i, carpet in enumerate(carpets):
-            # Определяем позицию наклейки на листе
-            pos_in_page = i % 12
-            col = pos_in_page % cols
-            row = pos_in_page // cols
+            # Определяем позицию на листе
+            pos = i % 12
+            col = pos % cols
+            row = pos // cols
             
             x = margin + col * (sticker_width + spacing)
             y = page_height - margin - (row + 1) * sticker_height - row * spacing
             
-            # Рисуем рамку наклейки
-            c.setStrokeColorRGB(0.8, 0.8, 0.8)
-            c.setLineWidth(0.5)
-            c.rect(x, y, sticker_width, sticker_height)
+            # Рисуем рамку (опционально)
+            if request.args.get('show_border', 'true').lower() == 'true':
+                c.setStrokeColorRGB(0.85, 0.85, 0.85)
+                c.setLineWidth(0.5)
+                c.rect(x, y, sticker_width, sticker_height)
             
-            # Загружаем QR-код
+            # Загружаем QR
             if carpet.qr_code_path and os.path.exists(carpet.qr_code_path):
                 try:
+                    # Открываем и ресайзим QR
                     pil_img = Image.open(carpet.qr_code_path)
                     
                     # QR в центре наклейки
                     qr_x = x + (sticker_width - qr_size) / 2
-                    qr_y = y + (sticker_height - qr_size) / 2 + 5 * mm
+                    qr_y = y + (sticker_height - qr_size) / 2 + 4 * mm
                     
                     # Конвертируем в нужный формат
                     temp_buffer = io.BytesIO()
-                    pil_img.save(temp_buffer, format='PNG')
+                    # Ресайзим до нужного размера
+                    pil_img_resized = pil_img.resize(
+                        (int(qr_size), int(qr_size)), 
+                        Image.Resampling.LANCZOS
+                    )
+                    pil_img_resized.save(temp_buffer, format='PNG')
                     temp_buffer.seek(0)
                     
                     qr_img = ImageReader(temp_buffer)
@@ -1603,45 +1651,68 @@ def generate_qr_pdf():
                     
                     # Текст под QR
                     c.setFillColorRGB(0, 0, 0)
-                    c.setFont("Helvetica-Bold", 7)
                     
-                    # ID ковра
+                    # ID ковра (жирный)
+                    c.setFont("Helvetica-Bold", font_id_size)
                     text_x = x + sticker_width / 2
-                    text_y = y + 3 * mm
+                    text_y = y + 2.5 * mm
                     c.drawCentredString(text_x, text_y, carpet.carpet_id)
                     
-                    # Цена (поменьше)
-                    c.setFont("Helvetica", 6)
-                    price_y = y + 1 * mm
+                    # Цена
+                    c.setFont("Helvetica", font_price_size)
+                    price_y = y + 0.5 * mm
                     c.drawCentredString(text_x, price_y, f"{carpet.price} ₽")
                     
                 except Exception as e:
-                    logger.error(f"Ошибка обработки QR для {carpet.carpet_id}: {e}")
+                    logger.error(f"Ошибка QR для {carpet.carpet_id}: {e}")
+                    # Если ошибка - рисуем заглушку
+                    c.setFillColorRGB(0.9, 0.9, 0.9)
+                    c.rect(qr_x, qr_y, qr_size, qr_size, fill=1)
+                    c.setFillColorRGB(0, 0, 0)
+                    c.setFont("Helvetica", 6)
+                    c.drawCentredString(x + sticker_width/2, y + sticker_height/2, "QR Error")
             
-            # Если закончилась страница - сохраняем и создаем новую
+            # Если страница заполнена - сохраняем
             if (i + 1) % 12 == 0:
+                # Номер страницы
+                page_num = (i // 12) + 1
+                c.setFont("Helvetica", 7)
+                c.setFillColorRGB(0.5, 0.5, 0.5)
+                c.drawRightString(page_width - 20, 15, f"Стр. {page_num}")
                 c.showPage()
                 c = canvas.Canvas(buffer, pagesize=A4)
         
         # Сохраняем последнюю страницу если есть
         if len(carpets) % 12 != 0:
+            page_num = math.ceil(len(carpets) / 12)
+            c.setFont("Helvetica", 7)
+            c.setFillColorRGB(0.5, 0.5, 0.5)
+            c.drawRightString(page_width - 20, 15, f"Стр. {page_num}")
             c.save()
         else:
-            # Если последняя страница была полной, canvas уже сохранен
+            # Если страница была полной, canvas уже сохранен
             pass
         
         buffer.seek(0)
+        
+        # Информация о количестве
+        total_pages = math.ceil(len(carpets) / 12)
+        flash(f'✅ Сгенерировано {len(carpets)} наклеек ({total_pages} стр.)', 'success')
         
         return send_file(
             buffer, 
             mimetype='application/pdf', 
             as_attachment=True, 
-            download_name=f'qr_stickers_{len(carpets)}_pages.pdf'
+            download_name=f'qr_stickers_{len(carpets)}_{total_pages}pages.pdf'
         )
+        
+    except MemoryError:
+        flash('❌ Слишком много ковров. Уменьшите количество или используйте ZIP архив.', 'error')
+        return redirect(url_for('mass_print_qr'))
     except Exception as e:
         logger.error(f"Ошибка генерации PDF: {e}")
         traceback.print_exc()
-        flash(f'❌ Ошибка генерации PDF: {str(e)[:200]}', 'error')
+        flash(f'❌ Ошибка: {str(e)[:200]}', 'error')
         return redirect(url_for('mass_print_qr'))
     
 @app.route('/generate_single_pages_pdf')
