@@ -21,7 +21,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install pyinstaller
         cd web_app
-        pip install flask flask-sqlalchemy qrcode pillow reportlab requests
+        pip install flask flask-sqlalchemy qrcode pillow reportlab requests PyPDF2
 
     - name: Build EXE
       run: |
@@ -34,6 +34,9 @@ jobs:
           --hidden-import=reportlab.lib.units `
           --hidden-import=reportlab.lib.utils `
           --hidden-import=requests `
+          --hidden-import=PyPDF2 `
+          --hidden-import=pypdf `
+          --collect-all=PyPDF2 `
           app.py
 
     - name: Prepare release package
